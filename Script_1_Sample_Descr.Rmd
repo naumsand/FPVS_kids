@@ -1,0 +1,37 @@
+---
+title: "Sample description"
+output: 
+  rmdformats::material:
+    highlight: kate
+    css: web_style.css
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    cards: true
+    self_contained: no
+    number_sections: no
+    code_folding: hide
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+
+# Set general settings for Markdown file 
+  options(max.print="75")
+
+  knitr::opts_chunk$set(echo=TRUE,
+  	             #cache=TRUE,
+                 prompt=FALSE,
+                 tidy=TRUE,
+                 comment=NA,
+                 message=FALSE,
+                 warning=FALSE,
+                 results = FALSE,
+  	             fig.align="center")
+  knitr::opts_knit$set(width=75)
+
+# Swipe environment
+  rm(list=ls())
+```
+
+
