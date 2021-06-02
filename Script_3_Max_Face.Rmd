@@ -1,0 +1,1796 @@
+---
+title: "Max-Face"
+output: 
+  rmdformats::material:
+    highlight: kate
+    css: web_style.css
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    cards: true
+    self_contained: no
+    number_sections: no
+    code_folding: hide
+    fig_caption: yes
+---
+
+```{r setup, include = FALSE, message = FALSE, warning = FALSE}
+
+# Set general settings for Markdown file 
+  options(max.print="75")
+
+  knitr::opts_chunk$set(echo=TRUE,
+  	             #cache=TRUE,
+                 prompt=FALSE,
+                 tidy=TRUE,
+                 comment=NA,
+                 message=FALSE,
+                 warning=FALSE,
+                 results = FALSE,
+  	             fig.align="center")
+  knitr::opts_knit$set(width=75)
+  
+# Load packages
+  library(afex)
+  library(cowplot)
+  library(dplyr)
+  library(eegUtils)
+  library(eeptools)
+  library(EnvStats)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggstatsplot)
+  library(grid)
+  library(kableExtra)
+  library(lme4)
+  library(lmerTest)
+  library(pander)
+  library(png)
+  library(Rmisc)
+  library(rstatix)
+  library(sjmisc)
+  library(sjPlot)
+  library(sjlabelled)
+  library(sjstats)
+  library(tidyr)
+  library(XLConnect)
+  
+# Swipe environment
+ rm(list=ls())  
+ 
+# Define colors
+ FPVS_col = c("#2e6456","#8ebcb0")
+ 
+# Summarize data for plot
+data_summary = function(data, varname, groupnames){
+  require(plyr)
+  summary_func = function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      se = sd(x[[col]], na.rm=TRUE)/sqrt(length(x)))
+  }
+  data_sum=ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum = rename(data_sum, c("mean" = varname))
+ return(data_sum)
+} 
+  
+```
+
+# Data preparation 
+
+```{r pre_data, include = FALSE}
+
+# Load ROI overview
+    ROI_lit = readWorksheetFromFile("./data/ROIs_FPVS_studies.xlsx", sheet = 1, startCol = 1, endCol = 0)
+
+  # Rename first column
+    ROI_lit = dplyr::rename(ROI_lit, Paper = Col1)
+
+# Get z-score grand-averaged data for odd / harm for all electrodes
+    ga_z_score_chan = read.delim("./data/max_ga_zscore_chan.txt", header = TRUE, sep = " ", dec = ".") 
+
+  # Rename channel column
+    ga_z_score_chan = dplyr::rename(ga_z_score_chan, Channel = Row)
+
+# Get baseline-corrected amplitude (bca) data
+    base_hap = read.delim("./data/max_bca_base_hap.txt", header = TRUE, sep = " ", dec = ".", stringsAsFactors=FALSE)
+    base_ang = read.delim("./data/max_bca_base_ang.txt", header = TRUE, sep = " ", dec = ".", stringsAsFactors=FALSE)
+    odd_hap = read.delim("./data/max_bca_odd_hap.txt", header = TRUE, sep = " ", dec = ".", stringsAsFactors=FALSE)
+    odd_ang = read.delim("./data/max_bca_odd_ang.txt", header = TRUE, sep = " ", dec = ".", stringsAsFactors=FALSE)
+    
+# Load questionnaire data
+  qn_data = readWorksheetFromFile("./data/qn_data.xlsx",
+                             sheet = 1,
+                             startCol = 1,
+                             endCol = 0)
+  
+
+# Re-code gender
+  qn_data$sex[qn_data$sex == 1] = "Male"
+  qn_data$sex[qn_data$sex == 2] = "Female"
+  
+# Re-code training group
+  qn_data$group[qn_data$group == "ZE"] = "TG"
+  qn_data$group[qn_data$group == "SB"] = "CG"
+
+# Define N/A data
+  qn_data[qn_data==-99] = NA
+  
+# Calculate age (Extract age from birth/test date)
+  qn_data$age = as.numeric(cbind(age_calc(as.Date(qn_data$birth_date),
+                                     as.Date(qn_data$test_date), units = "years"))) 
+  
+  
+# Calculate change scores (d = delta) for T2
+  qn_data$d_GEM_Total = qn_data$GEM_Total_T2 - qn_data$GEM_Total_T1
+  qn_data$d_EMK_EM_CH = qn_data$EMK_EM_CH_T2 - qn_data$EMK_EM_CH_T1
+  qn_data$d_EMK_EM_P = qn_data$EMK_EM_P_T2 - qn_data$EMK_EM_P_T1
+  qn_data$d_EMK_EK_CH = qn_data$EMK_EK_CH_T2 - qn_data$EMK_EK_CH_T1
+  qn_data$d_EMK_EK_P = qn_data$EMK_EK_P_T2 - qn_data$EMK_EK_P_T1
+  qn_data$d_EMK_PB_CH = qn_data$EMK_PB_CH_T2 - qn_data$EMK_PB_CH_T1
+  qn_data$d_SDQ_PB = qn_data$SDQ_PB_T2 - qn_data$SDQ_PB_T1
+  qn_data$d_SDQ_Total = qn_data$SDQ_Total_T1 - qn_data$SDQ_Total_T2
+  
+# Exclude participants with no FPVS max-face data
+  qn_data = subset(qn_data, EEG_Max == 1)
+    
+# Add ID
+    base_ang$ID = qn_data$ID
+    base_hap$ID = qn_data$ID 
+    odd_ang$ID = qn_data$ID
+    odd_hap$ID =  qn_data$ID
+    
+# Add emotion info and base/odd info (manip = manipulation)
+    base_ang = mutate(base_ang, emotion = "angry", manip = "base")
+    base_hap = mutate(base_hap, emotion = "happy", manip = "base")
+    odd_ang = mutate(odd_ang, emotion = "angry", manip = "odd")
+    odd_hap = mutate(odd_hap, emotion = "happy", manip = "odd")
+    
+# Merge data frames together
+  ds_max = bind_rows(base_ang, base_hap, odd_ang, odd_hap)
+  
+# Re-order data frame
+  ds_max = subset(ds_max, select=c(ID, emotion, manip, Fp1:Oz))
+
+```
+
+# Select ROIs
+
+To identify at which channel the FFT power was largest indicating which ROIs to take, we looked at grand-averaged Z-scores separated for stimuli presented at base and odd rate (based on Leleu et al., 2018).
+ 
+Here is an overview of grand-averaged Z-scores for each channel (blue indicates the largest Z-scores)
+
+```{r table_ga_z_score_channel}
+
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+# Mark channels with very large Z-scores for odd and base condition
+
+ga_z_score_chan %>%
+  mutate(
+    base = cell_spec(base, "html", color = ifelse(base > 30, "blue","black")),
+    odd = cell_spec(odd, "html", color = ifelse(odd > 7, "blue","black"))) %>%
+ 
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+**Compare to electrodes / ROIs from other FPVS studies:** 
+
+```{r table_ROI_lit}
+
+kable(ROI_lit) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+
+To conclude, similar channels have the largest Z-cores for the grand-average of selected base and odd harmonics. We would therefore go with the following ROIs: <br>
+
+*Base response response:*
+
+  + Left occipito-temporal (lOT): PO3, PO7, PO9
+  + Right occipito-temporal (rOT): PO4, PO8, PO10 
+  + Medial occipital (MO): O1, O2, Oz
+
+*Expression-change response:*
+
+  + Left occipito-temporal (lOT): PO3, PO7, PO9
+  + Right occipito-temporal (rOT): PO4, PO8, PO10 
+  + Medial occipital (MO): O1, O2, Oz
+  
+```{r averag_ROI}
+
+# Select only channels of interest
+  ds_max_ROI = subset(ds_max, select=c(ID, emotion, manip, O1, O2, Oz, PO3, PO7, P7, PO9, PO4, PO8, P8, PO10))
+
+# Select base condition
+  ds_max_ROI_base = subset(ds_max_ROI, manip == "base")
+
+# Average for selected ROIs
+  ds_max_ROI_base = mutate(ds_max_ROI_base,
+                        MO = rowMeans((select(ds_max_ROI_base, c(O1, O2, Oz)))),
+                        lOT = rowMeans((select(ds_max_ROI_base, c(PO3, PO7, PO9)))),
+                        rOT = rowMeans((select(ds_max_ROI_base, c(PO4, PO8, PO10)))))
+
+# Select odd condition
+  ds_max_ROI_odd = subset(ds_max_ROI, manip == "odd")
+
+# Average for selected ROIs
+  ds_max_ROI_odd = dplyr::mutate(ds_max_ROI_odd,
+                        MO = rowMeans((select(ds_max_ROI_odd, c(O1, O2, Oz)))),
+                        lOT = rowMeans((select(ds_max_ROI_odd, c(PO3, PO7, PO9)))),
+                        rOT = rowMeans((select(ds_max_ROI_odd, c(PO4, PO8, PO10)))))
+
+```
+ 
+```{r prep_plots, warning = FALSE}
+
+## Barplots
+
+# Select ROIs
+  ds_max_ROI_odd_plot = subset(ds_max_ROI_odd, select=c(ID, emotion, MO, lOT, rOT))
+  ds_max_ROI_base_plot = subset(ds_max_ROI_base, select=c(ID, emotion, MO, lOT, rOT))
+  
+# Transform from wide to long format 
+  ds_max_ROI_odd_plot = gather(ds_max_ROI_odd_plot, ROI, bca, MO:rOT,
+                              factor_key=TRUE)
+  
+  ds_max_ROI_base_plot = gather(ds_max_ROI_base_plot, ROI, bca, MO:rOT,
+                              factor_key=TRUE)
+  
+# Add demographics 
+  ds_max_ROI_base_plot$group = qn_data$group[match(ds_max_ROI_base_plot$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_plot$sex = qn_data$sex[match(ds_max_ROI_base_plot$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_plot$age = qn_data$age[match(ds_max_ROI_base_plot$ID,qn_data$ID,nomatch = NA)]  
+  ds_max_ROI_base_plot$SNR_ex = qn_data$Vis_SNR_Max[match(ds_max_ROI_base_plot$ID,qn_data$ID,nomatch = NA)]  
+  
+# Add demographics 
+  ds_max_ROI_odd_plot$group = qn_data$group[match(ds_max_ROI_odd_plot$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_plot$sex = qn_data$sex[match(ds_max_ROI_odd_plot$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_plot$age = qn_data$age[match(ds_max_ROI_odd_plot$ID,qn_data$ID,nomatch = NA)]  
+  ds_max_ROI_odd_plot$SNR_ex = qn_data$Vis_SNR_Max[match(ds_max_ROI_odd_plot$ID,qn_data$ID,nomatch = NA)]  
+  
+## Topographies  
+  
+# Select data   
+  ds_max_topo = subset(ds_max, select=c(ID, manip, emotion, Fp1:Oz))
+    
+# Add time variable  
+  ds_max_topo = mutate(ds_max_topo, time = 1)
+      
+# Change from wide to long format for electrodes
+  ds_max_topo = gather(ds_max_topo, electrode, amplitude, Fp1:Oz, factor_key=TRUE)
+  
+```
+ 
+```{r prep_stats, warning = FALSE}
+
+# Select ROIs
+  ds_max_ROI_odd_stats = subset(ds_max_ROI_odd, select=c(ID, emotion, MO, lOT, rOT))
+  ds_max_ROI_base_stats = subset(ds_max_ROI_base, select=c(ID, emotion, MO, lOT, rOT))
+  
+# Change format from wide to long
+  ds_max_ROI_odd_stats = ds_max_ROI_odd_stats %>%
+  gather(key = "ROI", value = "bca", MO, lOT, rOT) %>%
+  convert_as_factor(ID, ROI, emotion)
+  
+# Add demographics 
+  ds_max_ROI_odd_stats$group = qn_data$group[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$sex = qn_data$sex[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$age = qn_data$age[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]   
+  ds_max_ROI_odd_stats$SNR_ex = qn_data$Vis_SNR_Max[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)] 
+  
+  ds_max_ROI_odd_stats$SRS = qn_data$SRS_T1[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$GEM_T2 = qn_data$GEM_Total_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$EMK_EM_P_T2 = qn_data$EMK_EM_P_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$EMK_EM_CH_T2 = qn_data$EMK_EM_CH_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$EMK_EK_P_T2 = qn_data$EMK_EK_P_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$EMK_EK_CH_T2 = qn_data$EMK_EK_CH_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$EMK_PB_CH_T2 = qn_data$EMK_PB_CH_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$SDQ_PB_T2 = qn_data$SDQ_PB_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$SDQ_T2 = qn_data$SDQ_Total_T2[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+
+  ds_max_ROI_odd_stats$d_GEM_Total = qn_data$d_GEM_Total[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_EMK_EM_CH = qn_data$d_EMK_EM_CH[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_EMK_EM_P = qn_data$d_EMK_EM_P[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_EMK_EK_CH = qn_data$d_EMK_EK_CH[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_EMK_EK_P = qn_data$d_EMK_EK_P[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_EMK_PB_CH = qn_data$d_EMK_PB_CH[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_SDQ_PB = qn_data$d_SDQ_PB[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_odd_stats$d_SDQ_Total = qn_data$d_SDQ_Total[match(ds_max_ROI_odd_stats$ID,qn_data$ID,nomatch = NA)]
+  
+# Change format from wide to long
+  ds_max_ROI_base_stats = ds_max_ROI_base_stats %>%
+  gather(key = "ROI", value = "bca", MO, lOT, rOT) %>%
+  convert_as_factor(ID, ROI, emotion)
+  
+# Add demographics   
+  ds_max_ROI_base_stats$group = qn_data$group[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$sex = qn_data$sex[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$age = qn_data$age[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]  
+  ds_max_ROI_base_stats$SNR_ex = qn_data$Vis_SNR_Max[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]  
+
+  ds_max_ROI_base_stats$SRS = qn_data$SRS_T1[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$GEM_T2 = qn_data$GEM_Total_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$EMK_EM_P_T2 = qn_data$EMK_EM_P_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$EMK_EM_CH_T2 = qn_data$EMK_EM_CH_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$EMK_EK_P_T2 = qn_data$EMK_EK_P_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$EMK_EK_CH_T2 = qn_data$EMK_EK_CH_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$EMK_PB_CH_T2 = qn_data$EMK_PB_CH_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$SDQ_PB_T2 = qn_data$SDQ_PB_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$SDQ_T2 = qn_data$SDQ_Total_T2[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+
+  ds_max_ROI_base_stats$d_GEM_Total = qn_data$d_GEM_Total[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_EMK_EM_CH = qn_data$d_EMK_EM_CH[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_EMK_EM_P = qn_data$d_EMK_EM_P[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_EMK_EK_CH = qn_data$d_EMK_EK_CH[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_EMK_EK_P = qn_data$d_EMK_EK_P[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_EMK_PB_CH = qn_data$d_EMK_PB_CH[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_SDQ_PB = qn_data$d_SDQ_PB[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  ds_max_ROI_base_stats$d_SDQ_Total = qn_data$d_SDQ_Total[match(ds_max_ROI_base_stats$ID,qn_data$ID,nomatch = NA)]
+  
+
+```
+
+
+# Analysis {.tabset .tabset-pills}
+
+## Signal-to-noise-ratio   
+  
+We plotted signal-to-noise ratio (SNR) plots for largest base response at OZ and largest expression change response at PO8: 
+
+```{r snr_plots_trial, results = "asis"}
+
+# Get z-score grand-averaged data for odd / harm for all electrodes
+  snr_hap = read.delim("./data/max_snr_hap.txt", header = TRUE, sep = " ", dec = ".") 
+  snr_hap$emotion = "happy"
+  snr_hap = gather(snr_hap, electrode, SNR, O1:PO10, factor_key=TRUE)
+  
+  snr_ang = read.delim("./data/max_snr_ang.txt", header = TRUE, sep = " ", dec = ".") 
+  snr_ang$emotion = "ang"
+  snr_ang = gather(snr_ang, electrode, SNR, O1:PO10, factor_key=TRUE)
+  
+  max_snr = rbind(snr_hap, snr_ang)
+
+# Odd rate
+  max_snr_PO10 = subset(max_snr, electrode == "PO10")
+  max_snr_PO10_hap = subset(max_snr_PO10, emotion == "happy")
+  max_snr_PO10_ang = subset(max_snr_PO10, emotion == "ang")
+
+# Base response
+  max_snr_Oz = subset(max_snr, electrode == "Oz")
+  max_snr_Oz_mean_cond = aggregate(SNR ~ freq,  max_snr_Oz, mean)                             
+
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+library(ggpmisc)
+
+snr_max = ggplot() + 
+  geom_line(data=max_snr_Oz_mean_cond, aes(x=freq, y=SNR),
+            color='gray39',size=1, alpha=0.8) + 
+  stat_peaks(data=max_snr_Oz_mean_cond, aes(x=freq, y=SNR),
+             colour = "gray39", fill = "gray47",shape = 21, span = 101, size = 3, stroke = 2) +
+  geom_line(data=max_snr_PO10_ang, aes(x=freq, y=SNR),
+            color='#FF9A50',size=1, alpha=0.8) + 
+  stat_peaks(data=max_snr_PO10_ang, aes(x=freq, y=SNR),
+             colour = "#FF9A50", fill = "#F0CA9F",shape = 21, span = 47, size = 3, stroke = 2) +
+  geom_line(data=max_snr_PO10_hap, aes(x=freq, y=SNR), color='#459DFF',size=1, alpha=0.8) +
+  stat_peaks(data=max_snr_PO10_hap, aes(x=freq, y=SNR), 
+             colour = "#459DFF", fill = "#A8E3EB", shape = 21, span = 47, size = 3, stroke  = 2) +
+  scale_x_continuous(breaks=seq(1,9.5,1), limits = c(1,9.5), expand = c(0, 0)) +
+  scale_y_continuous(breaks=seq(0,35,10), limits = c(0,35), expand = c(0, 0)) +
+  xlab ( 'Frequency (Hz)') +  
+  theme_classic(base_size = 18) +
+  expand_limits(x = 0, y = 0)+
+  theme(panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA)) # bg of the plot
+
+snr_max
+
+ggsave("./figures/SNR_max.png", bg = "transparent", dpi = 300)
+
+```
+
+## BCA {.tabset .tabset-pills}
+
+### Base response
+
+```{r BCA_base_rate_plot, results = "asis", eval = FALSE}
+
+# Create data summary
+  ds_max_ROI_base_plot_prep = data_summary(ds_max_ROI_base_plot, varname="bca", groupnames=c("ROI", "emotion"))
+
+# Plot Base response differences for emotions 
+  
+  base_bar_all = ggplot(ds_max_ROI_base_plot_prep, aes(x=emotion, y=bca, fill = ROI))+
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, size =1, position = position_dodge(width = 0.9))+
+            scale_fill_manual(values=c('#929394','#D9DADB','#474747'))+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+           # ylim(0,2.3)+
+            theme_classic(base_size = 20) +
+            theme(legend.position = "bottom")
+
+# Draw topographies      
+  
+# Subset for base 
+  ds_max_topo_base = subset(ds_max_topo, manip == "base")
+    
+# Subset for emotions
+  ds_max_topo_base_hap = subset(ds_max_topo_base, emotion == "happy")
+  ds_max_topo_base_ang = subset(ds_max_topo_base, emotion == "angry")
+    
+# Add montage
+  ds_max_topo_base_hap = electrode_locations(ds_max_topo_base_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  ds_max_topo_base_ang = electrode_locations(ds_max_topo_base_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  topo_hap_base_all = ggplot(ds_max_topo_base_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2.5)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")
+  
+  topo_ang_base_all = ggplot(ds_max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2.5)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))) +
+                    theme(legend.position = "none")  
+  
+# Get legend 
+    topo_leg = ggplot(ds_max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2.5)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))
+    
+    topo_leg = get_legend(topo_leg)
+  
+  
+# Explanation: draw_plot(plot, for position: x = 0, y = 0, width = 1, height = 1)
+
+# Combine plots
+  ggdraw(xlim = c(0, 1), ylim = c(0,2)) +
+  draw_plot(base_bar_all, 0, -0.05, 0.5, 2) +
+  draw_plot(topo_hap_base_all, 0.4, 1.1, 0.7, 0.7) +
+  draw_plot(topo_ang_base_all, 0.4, 0.3, 0.7, 0.7)+
+  draw_plot(topo_leg, 0.43, 0.5, 1, 1)
+
+```
+
+```{r BCA_base_rate_plot_groups, results = "asis", fig.height = 6, fig.width = 6}
+
+# Create data summary
+  ds_max_ROI_base_plot_group = data_summary(ds_max_ROI_base_plot, varname="bca", groupnames=c("group","ROI", "emotion"))
+
+# Plot Base response differences for emotions 
+  
+max_base_groups = ggplot(ds_max_ROI_base_plot_group, aes(x=emotion, y=bca, fill = ROI))+
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, size =1, position = position_dodge(width = 0.9))+
+            scale_fill_manual(values=c('#929394','#D9DADB','#474747'))+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+           # ylim(0,2.3)+
+            theme_classic(base_size = 20) +
+            theme(legend.position = "bottom",
+                  panel.background = element_rect(fill = "transparent"),
+                  plot.background = element_rect(fill = "transparent", color = NA),
+                  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+                  legend.box.background = element_rect(fill = "transparent"))+
+            facet_wrap(~group)
+
+max_base_groups
+
+ggsave("./figures/max_base_groups.png", bg = "transparent", dpi = 300)
+
+```
+
+```{r BCA_base_rate_ANOVA, results = "asis"}
+
+#   anova_max_base = aov(bca ~ (emotion*ROI) + Error(ID/(emotion*ROI)), data=ds_max_ROI_base_stats)
+#   an_max_base = anova_stats(anova_max_base, digits = 3)
+#   
+# # Print only selected statistical parameters
+#   an_max_base = subset(an_max_base, select=c(term, df, statistic, p.value, partial.etasq))
+#   an_max_base = subset(an_max_base, is.na(p.value) == FALSE)
+#   kable(an_max_base)
+#   
+#   
+#   anova_max_base = aov(bca ~ group + (emotion*ROI) + Error(ID/(emotion*ROI)), data=ds_max_ROI_base_stats)
+#   an_max_base = anova_stats(anova_max_base, digits = 3)
+#   
+# # Print only selected statistical parameters
+#   an_max_base = subset(an_max_base, select=c(term, df, statistic, p.value, partial.etasq))
+#   an_max_base = subset(an_max_base, is.na(p.value) == FALSE)
+#   kable(an_max_base)
+#   
+  
+  library(afex)
+  library(pander)
+  
+  max_base = aov_ez("ID", "bca", ds_max_ROI_base_stats, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_base$anova_table)   
+  
+ds_max_ROI_base_stats_SNR = subset(ds_max_ROI_base_stats, SNR_ex == 1) 
+  
+  
+  max_base_snr = aov_ez("ID", "bca", ds_max_ROI_base_stats_SNR, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_base_snr$anova_table)       
+  
+```
+
+### Expression change response
+
+```{r BCA_expr_change_plot, results = "asis", eval = FALSE}
+
+# Create data summary
+  ds_max_ROI_odd_plot_prep = data_summary(ds_max_ROI_odd_plot, varname="bca", groupnames=c("ROI", "emotion"))
+
+# Plot oddresponse differences for emotions 
+  
+  odd_bar_all = ggplot(ds_max_ROI_odd_plot_prep, aes(x=emotion, y=bca, fill=ROI)) +
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, position=position_dodge(0.9), size = 1)+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('#929394','#D9DADB','#474747'))+
+          #  ylim(0,1.4)+
+            theme_classic(base_size = 20)+
+            theme(legend.position = "bottom") 
+
+# Draw topographies      
+  
+# Subset for odd 
+  ds_max_topo_odd = subset(ds_max_topo, manip == "odd")
+    
+# Subset for emotions
+  ds_max_topo_odd_hap = subset(ds_max_topo_odd, emotion == "happy")
+  ds_max_topo_odd_ang = subset(ds_max_topo_odd, emotion == "angry")
+    
+# Add montage
+  ds_max_topo_odd_hap = electrode_locations(ds_max_topo_odd_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  ds_max_topo_odd_ang = electrode_locations(ds_max_topo_odd_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# Draw topographies 
+  topo_hap_odd_all = ggplot(ds_max_topo_odd_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,5)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")
+  
+  topo_ang_odd_all = ggplot(ds_max_topo_odd_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,5)) + 
+                    theme_void() + 
+                    coord_equal() +  
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")    
+   
+# Get legend 
+    topo_leg = ggplot(ds_max_topo_odd_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,5)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))
+    
+    topo_leg = get_legend(topo_leg)
+  
+  
+# Explanation: draw_plot(plot, for position: x = 0, y = 0, width = 1, height = 1)
+
+# Combine plots
+  ggdraw(xlim = c(0, 1), ylim = c(0,2)) +
+  draw_plot(odd_bar_all, 0, -0.05, 0.5, 2) +
+  draw_plot(topo_hap_odd_all, 0.4, 1.1, 0.7, 0.7) +
+  draw_plot(topo_ang_odd_all, 0.4, 0.3, 0.7, 0.7)+
+  draw_plot(topo_leg, 0.43, 0.5, 1, 1)
+
+```
+
+```{r BCA_expr_change_group, results = "asis", fig.height = 6, fig.width = 6}
+
+# Create data summary
+  ds_max_ROI_odd_plot_prep = data_summary(ds_max_ROI_odd_plot, varname="bca", groupnames=c("group","ROI", "emotion"))
+
+# Plot odd response differences for emotions 
+
+ max_odd_groups = ggplot(ds_max_ROI_odd_plot_prep, aes(x=emotion, y=bca, fill=ROI)) +
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, position=position_dodge(0.9), size = 1)+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('#929394','#D9DADB','#474747'))+
+          #  ylim(0,1.4)+
+            theme_classic(base_size = 20)+
+            theme(legend.position = "bottom",
+                  panel.background = element_rect(fill = "transparent"),
+                  plot.background = element_rect(fill = "transparent", color = NA),
+                  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+                  legend.box.background = element_rect(fill = "transparent"))+        
+            facet_wrap(~group)
+ 
+max_odd_groups
+
+ggsave("./figures/max_odd_groups.png", bg = "transparent", dpi = 300) 
+
+```
+
+```{r BCA_expr_change_ANOVA, results = "asis"}
+
+#   anova_max_odd = aov(bca ~ (emotion*ROI) + Error(ID/(emotion*ROI)), data=ds_max_ROI_odd_stats)
+#   an_max_odd = anova_stats(anova_max_odd, digits = 3)
+#   
+# # Print only selected statistical parameters
+#   an_max_odd = subset(an_max_odd, select=c(term, df, statistic, p.value, partial.etasq))
+#   an_max_odd = subset(an_max_odd, is.na(p.value) == FALSE)
+#   kable(an_max_odd)
+#   
+#   
+#   anova_max_odd = aov(bca ~ group + (emotion*ROI) + Error(ID/(emotion*ROI)), data=ds_max_ROI_odd_stats)
+#   an_max_odd = anova_stats(anova_max_odd, digits = 3)
+  
+# Print only selected statistical parameters
+  # an_max_odd = subset(an_max_odd, select=c(term, df, statistic, p.value, partial.etasq))
+  # an_max_odd = subset(an_max_odd, is.na(p.value) == FALSE)
+  # kable(an_max_odd)
+  
+  max_odd = aov_ez("ID", "bca", ds_max_ROI_odd_stats, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_odd$anova_table)    
+  
+ds_max_ROI_odd_stats_SNR = subset(ds_max_ROI_odd_stats, SNR_ex == 1) 
+  
+  max_odd_snr = aov_ez("ID", "bca", ds_max_ROI_odd_stats_SNR, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_odd_snr$anova_table)     
+  
+```
+
+
+### LMMs
+
+```{r lmm_base, results = "asis"}
+
+# Convert ID, group & emotion into factor variables
+  ds_max_ROI_base_lmm = ds_max_ROI_base_stats %>%
+  convert_as_factor(ID)
+
+  ds_max_ROI_base_lmm$emotion = factor(ds_max_ROI_base_lmm$emotion,
+                                  levels=c("happy","angry"))
+  
+  ds_max_ROI_base_lmm$group = factor(ds_max_ROI_base_lmm$group,
+                                  levels=c("TG","CG"))
+ 
+# Define contrasts for emotion / group
+  contrasts(ds_max_ROI_base_lmm$emotion) = contr.treatment(2)
+  contrasts(ds_max_ROI_base_lmm$group) = contr.treatment(2)
+
+# Define treatment contrast for ROI
+  ds_max_ROI_base_lmm$ROI = factor(ds_max_ROI_base_lmm$ROI,levels=c("rOT","lOT","MO"))
+  contrasts(ds_max_ROI_base_lmm$ROI) = contr.treatment(3, base = 3)
+  
+# Build full model with new names                
+  mod_base_lmer = lmer(bca ~ group*emotion + ROI +
+                          (1|ID),
+                        data = ds_max_ROI_base_lmm,
+                        control=lmerControl(calc.derivs = FALSE), REML = FALSE)  
+  
+  labels = c("Intercept", "TG vs. CG", "Happy vs. Angry", "MO vs. rOT", "MO vs. lOT", "Group x Emotion")
+  
+  tab_model(mod_base_lmer, pred.labels=labels)
+  
+  plot_model(mod_base_lmer, type = "pred", terms = c("emotion"))
+  plot_model(mod_base_lmer, type = "pred", terms = c("ROI"))
+
+  
+```
+
+```{r lmm_base_SRS, results = "asis"}
+
+# Convert ID, group & emotion into factor variables
+  ds_max_ROI_base_lmm = ds_max_ROI_base_stats %>%
+  convert_as_factor(ID)
+
+  ds_max_ROI_base_lmm$emotion = factor(ds_max_ROI_base_lmm$emotion,
+                                  levels=c("happy","angry"))
+  
+  ds_max_ROI_base_lmm$group = factor(ds_max_ROI_base_lmm$group,
+                                  levels=c("TG","CG"))
+ 
+# Define contrasts for emotion / group
+  contrasts(ds_max_ROI_base_lmm$emotion) = contr.treatment(2)
+  contrasts(ds_max_ROI_base_lmm$group) = contr.treatment(2)
+
+# Define treatment contrast for ROI
+  ds_max_ROI_base_lmm$ROI = factor(ds_max_ROI_base_lmm$ROI,levels=c("rOT","lOT","MO"))
+  contrasts(ds_max_ROI_base_lmm$ROI) = contr.treatment(3, base = 3)
+  
+# Build full model with new names                
+  mod_base_lmer = lmer(bca ~ SRS + group*emotion + ROI +
+                          (1|ID),
+                        data = ds_max_ROI_base_lmm,
+                        control=lmerControl(calc.derivs = FALSE), REML = FALSE)  
+  
+  labels = c("SRS", "CG vs. TG", "Happy vs. Angry", "rOT vs. MO", "lOT vs. MO", "Group x Emotion")
+  
+  
+  tab_model(mod_base_lmer, pred.labels=labels,  show.intercept = FALSE)
+  
+  #plot_model(mod_base_lmer, type = "pred", terms = c("emotion"))
+  #plot_model(mod_base_lmer, type = "pred", terms = c("ROI"))
+
+  
+```
+
+```{r lmm_odd, results = "asis"}
+
+# Convert ID, group & emotion into factor variables
+  ds_max_ROI_odd_lmm = ds_max_ROI_odd_stats %>%
+  convert_as_factor(ID)
+
+  ds_max_ROI_odd_lmm$emotion = factor(ds_max_ROI_odd_lmm$emotion,
+                                  levels=c("happy","angry"))
+  
+  ds_max_ROI_odd_lmm$group = factor(ds_max_ROI_odd_lmm$group,
+                                  levels=c("TG","CG"))
+ 
+# Define contrasts for emotion / group
+  contrasts(ds_max_ROI_odd_lmm$emotion) = contr.treatment(2)
+  contrasts(ds_max_ROI_odd_lmm$group) = contr.treatment(2)
+
+# Define treatment contrast for ROI
+  ds_max_ROI_odd_lmm$ROI = factor(ds_max_ROI_odd_lmm$ROI,levels=c("rOT","lOT","MO"))
+  contrasts(ds_max_ROI_odd_lmm$ROI) = contr.treatment(3,  base = 3)
+  
+# Build full model with new names                
+  mod_odd_lmer = lmer(bca ~ group*emotion + ROI +
+                          (1|ID),
+                        data = ds_max_ROI_odd_lmm,
+                        control=lmerControl(calc.derivs = FALSE), REML = FALSE)  
+  
+  labels = c("Intercept", "TG vs. CG", "Happy vs. Angry", "MO vs. rOT", "MO vs. lOT", "Group x Emotion")
+  
+  tab_model(mod_odd_lmer, pred.labels=labels)
+  
+  plot_model(mod_odd_lmer, type = "pred", terms = c("group","emotion"))
+  
+```
+
+```{r lmm_odd_posthoc}
+
+  ds_max_ROI_odd_lmm$interaction = interaction(ds_max_ROI_odd_lmm$group, ds_max_ROI_odd_lmm$emotion)
+
+  mod_odd_ph = lmer(bca ~ interaction + ROI + 
+                          (1 |ID),
+                          data = ds_max_ROI_odd_lmm,
+                          control=lmerControl(calc.derivs = FALSE)) 
+
+  library(multcomp)
+  
+# Select contrasts of interest
+  mod_odd_posthoc =  summary(glht(mod_odd_ph, linfct=mcp(interaction = "Tukey")))
+  
+  
+  
+  mod_odd_posthoc =  summary(glht(mod_odd_ph, linfct=mcp(interaction= c("CG.angry - TG.angry = 0",
+                                                                                "CG.angry - TG.happy = 0",
+                                                                                "CG.happy - TG.happy = 0",
+                                                                                "TG.angry - CG.happy = 0"
+                                                                                )),test = adjusted(type = "fdr")))
+  
+  
+  # Get ready for presentation in RMarkdown
+  tab1 = merge(as.data.frame(mod_odd_posthoc$test$coefficients),as.data.frame(mod_odd_posthoc$test$sigma),by=0)
+  tab2 = as.data.frame(mod_odd_posthoc$test$pvalues)
+  rownames(tab2) = rownames(as.data.frame(mod_odd_posthoc$test$tstat))
+  tab2 = merge(as.data.frame(mod_odd_posthoc$test$tstat),tab2,by=0)
+  mod_odd_ph_test = merge(tab1,tab2,by='Row.names')
+  colnames(mod_odd_ph_test) = c("Contrast","Est.","Std. Error", "z value", "p value")
+  
+  
+# Create table
+  kable(mod_odd_ph_test) %>% 
+    kable_styling(bootstrap_options = c("hover"), font_size = 14,fixed_thead = T)    
+```
+
+```{r lmm_odd_SRS, results = "asis"}
+
+# Convert ID, group & emotion into factor variables
+  ds_max_ROI_odd_lmm = ds_max_ROI_odd_stats %>%
+  convert_as_factor(ID)
+
+  ds_max_ROI_odd_lmm$emotion = factor(ds_max_ROI_odd_lmm$emotion,
+                                  levels=c("happy","angry"))
+  
+  ds_max_ROI_odd_lmm$group = factor(ds_max_ROI_odd_lmm$group,
+                                  levels=c("TG","CG"))
+ 
+# Define contrasts for emotion / group
+  contrasts(ds_max_ROI_odd_lmm$emotion) = contr.treatment(2)
+  contrasts(ds_max_ROI_odd_lmm$group) = contr.treatment(2)
+
+# Define treatment contrast for ROI
+  ds_max_ROI_odd_lmm$ROI = factor(ds_max_ROI_odd_lmm$ROI,levels=c("rOT","lOT","MO"))
+  contrasts(ds_max_ROI_odd_lmm$ROI) = contr.treatment(3, base = 3)
+  
+# Build full model with new names                
+  mod_odd_lmer = lmer(bca ~ SRS + group*emotion + ROI +
+                          (1|ID),
+                        data = ds_max_ROI_odd_lmm,
+                        control=lmerControl(calc.derivs = FALSE), REML = FALSE)  
+  
+  labels = c("SRS", "CG vs. TG", "Happy vs. Angry", "rOT vs. MO", "lOT vs. MO", "Group x Emotion")
+  
+  
+  tab_model(mod_odd_lmer, pred.labels=labels,  show.intercept = FALSE)
+  
+  #plot_model(mod_odd_lmer, type = "pred", terms = c("emotion"))
+  #plot_model(mod_odd_lmer, type = "pred", terms = c("ROI"))
+
+  
+```
+
+### Correlations
+
+```{r, results = "asis"}
+
+library(corrplot)
+
+# Average across ROIs
+  odd_cor_prep = aggregate(ds_max_ROI_base_stats,
+                by = list(ds_max_ROI_base_stats$ID, ds_max_ROI_base_stats$emotion, ds_max_ROI_base_stats$group),
+                FUN = mean)
+
+# De-select variables
+  odd_cor_prep = subset(odd_cor_prep, select = -c(ID, emotion, ROI, group, sex, SNR_ex))
+
+# Across participants - BCA happy
+  odd_hap_prep = subset(odd_cor_prep, Group.2 == "happy")
+  odd_hap_prep = subset(odd_hap_prep, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_hap = cor(odd_hap_prep)
+  corrplot(odd_hap, method = "circle", type = "lower", tl.col = "black")
+  
+# Across participants - BCA angry
+  odd_ang_prep = subset(odd_cor_prep, Group.2 == "angry")
+  odd_ang_prep = subset(odd_ang_prep, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_hap = cor(odd_ang_prep)
+  corrplot(odd_hap, method = "circle", type = "lower", tl.col = "black")
+    
+  library(psych)
+  
+# TG participants - BCA happy
+  odd_hap_prep_TG = subset(odd_cor_prep, Group.2 == "happy" & Group.3 == "TG")
+  odd_hap_prep_TG = subset(odd_hap_prep_TG, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_hap_TG = cor(odd_hap_prep_TG)
+  corrplot(odd_hap_TG, method = "circle", type = "lower", tl.col = "black")
+  
+# Single correlations 
+  corr.test(odd_hap_prep_TG$bca, odd_hap_prep_TG$GEM_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_hap_prep_TG$bca, odd_hap_prep_TG$EMK_EM_P_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_hap_prep_TG$bca, odd_hap_prep_TG$EMK_EM_CH_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_hap_prep_TG$bca, odd_hap_prep_TG$EMK_EK_P_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_hap_prep_TG$bca, odd_hap_prep_TG$EMK_EK_CH_T2, use = "pairwise", method = "pearson", alpha = .05)
+
+# CG participants - BCA happy
+  odd_hap_prep_CG = subset(odd_cor_prep, Group.2 == "happy" & Group.3 == "CG")
+  odd_hap_prep_CG = subset(odd_hap_prep_CG, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_hap_CG = cor(odd_hap_prep_CG)
+  corrplot(odd_hap_CG, method = "circle", type = "lower", tl.col = "black")
+  
+  
+# TG participants - BCA angry
+  odd_ang_prep_TG = subset(odd_cor_prep, Group.2 == "angry" & Group.3 == "TG")
+  odd_ang_prep_TG = subset(odd_ang_prep_TG, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_ang_TG = cor(odd_ang_prep_TG)
+  corrplot(odd_ang_TG, method = "circle", type = "lower", tl.col = "black")  
+  
+# Single correlations 
+  corr.test(odd_ang_prep_TG$bca, odd_ang_prep_TG$GEM_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_ang_prep_TG$bca, odd_ang_prep_TG$EMK_EM_P_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_ang_prep_TG$bca, odd_ang_prep_TG$EMK_EM_CH_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_ang_prep_TG$bca, odd_ang_prep_TG$EMK_EK_P_T2, use = "pairwise", method = "pearson", alpha = .05)
+  corr.test(odd_ang_prep_TG$bca, odd_ang_prep_TG$EMK_EK_CH_T2, use = "pairwise", method = "pearson", alpha = .05)
+  
+# CG participants - BCA angry
+  odd_ang_prep_CG = subset(odd_cor_prep, Group.2 == "angry" & Group.3 == "CG")
+  odd_ang_prep_CG = subset(odd_ang_prep_CG, select = -c(Group.1, Group.2, Group.3))  
+
+  odd_ang_CG = cor(odd_ang_prep_CG)
+  corrplot(odd_ang_CG, method = "circle", type = "lower", tl.col = "black")
+  
+
+
+```
+
+
+## Time-domain analysis {.tabset .tabset-pills}
+
+### Visualization
+
+
+```{r max_plot_ERP_lOT_rOT, warning = FALSE, message = FALSE, fig.height = 10, fig.width= 6}
+
+# Load data
+  hap_traj = read.delim("./data/max_hap_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_traj = read.delim("./data/max_ang_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  hap_traj$emotion = "happy"
+  ang_traj$emotion = "angry"
+
+# Combine data sets
+  max_traj = rbind(hap_traj,ang_traj)
+ 
+# Select lOT electrodes and average across electrodes
+  max_traj_lOT = subset(max_traj, select=c(ID, time, emotion, PO3, PO7, PO9))
+  max_traj_lOT_av = data.frame(ID=max_traj_lOT[,1], time=max_traj_lOT[,2],
+                               emotion=max_traj_lOT[,3], Means=rowMeans(max_traj_lOT[,4:6]))
+  
+  max_traj_lOT_av$group = qn_data$group[match(max_traj_lOT_av$ID,qn_data$ID,nomatch = NA)]
+
+
+# Plot data
+  max_lOT = ggplot(max_traj_lOT_av, aes(time, Means))+
+          ggtitle("lOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col)+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~group)
+     
+# Select rOT electrodes and average across electrodes
+  max_traj_rOT = subset(max_traj, select=c(ID, time, emotion, PO4, PO8, PO10))
+  max_traj_rOT_av = data.frame(ID=max_traj_rOT[,1], time=max_traj_rOT[,2],
+                               emotion=max_traj_rOT[,3], Means=rowMeans(max_traj_rOT[,4:6]))
+  
+  
+  max_traj_rOT_av$group = qn_data$group[match(max_traj_rOT_av$ID,qn_data$ID,nomatch = NA)]
+
+
+# Plot data
+     max_rOT = ggplot(max_traj_rOT_av,aes(time,Means))+
+          ggtitle("rOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col) +
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position = "bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~group)
+    
+# Combine plots 
+   fig_max_ERPs = cowplot::plot_grid(max_lOT, max_rOT, nrow = 2, rel_heights = c(1, 1))
+   fig_max_ERPs 
+   
+  ggsave("./figures/fig_max_ERPs.png", bg = "transparent", dpi = 300)
+  
+   
+```
+
+
+```{r max_plot_ERP_group, warning = FALSE, message = FALSE, fig.height = 10, fig.width= 6}
+
+# Load data
+  hap_traj = read.delim("./data/max_hap_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_traj = read.delim("./data/max_ang_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  hap_traj$emotion = "happy"
+  ang_traj$emotion = "angry"
+
+# Combine data sets
+  max_traj = rbind(hap_traj,ang_traj)
+ 
+# Select lOT electrodes and average across electrodes
+  max_traj$group = qn_data$group[match(max_traj$ID,qn_data$ID,nomatch = NA)]
+  max_traj = subset(max_traj, select = c(ID, time, emotion, group, PO3, PO7, PO9, PO4, PO8, PO10, O1, O2, Oz))
+
+  max_traj_av = data.frame(ID=max_traj[,1], time=max_traj[,2],
+                               emotion=max_traj[,3], 
+                               group=max_traj[,4], 
+                               lot_mean=rowMeans(max_traj[,5:7]),
+                               rot_mean=rowMeans(max_traj[,8:10]),
+                               mo_mean=rowMeans(max_traj[,11:13]))
+  
+  max_traj_av = gather(max_traj_av, ROI, amp, lot_mean:mo_mean, factor_key=TRUE)
+
+  max_traj_ZE = subset(max_traj_av, group == "TG")
+  max_traj_CT = subset(max_traj_av, group == "CG")
+  
+# Plot data
+  max_ZE = ggplot(max_traj_ZE, aes(time, amp))+
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col)+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~ROI)
+
+# Plot data
+     max_CT = ggplot(max_traj_CT, aes(time,amp))+
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col) +
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position = "bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~ROI)
+    
+# Combine plots 
+   fig_max_ERPs_groups = cowplot::plot_grid(max_CT, max_ZE, nrow = 2, rel_heights = c(1, 1))
+   fig_max_ERPs_groups 
+   
+  ggsave("./figures/fig_max_ERPs_groups.png", bg = "transparent", dpi = 300)
+  
+   
+```
+
+
+```{r max_plot_grand_av, message = FALSE, warning = FALSE}
+
+# Create grandaverage to detect peaks for P1, N170, P3
+  # max_traj_lOT_av = includes mean of lOT electrodes
+  # max_traj_rOT_av = includes mean of rOT electrodes
+
+  # Average across ROIs
+    max_ROI_av = (max_traj_lOT_av$Means + max_traj_rOT_av$Means)/2
+    max_grandav_ROI = data.frame(ID = max_traj_lOT_av[,1], time=max_traj_lOT_av[,2],
+                                  emotion = max_traj_lOT_av[,3], mean = max_ROI_av)
+    
+  # Average across emotion  
+    max_grandav_emo = aggregate(mean ~ time + ID, max_grandav_ROI, mean)
+    
+    
+  # Average across ID
+    max_grandav = aggregate(mean ~ time, max_grandav_emo, mean)
+    
+# Plot grand-average     
+    
+ ggplot(max_grandav,aes(time,mean))+
+          ggtitle("Grand average") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid")+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-1, 3),xlim=c(-160,600)) +
+          scale_y_continuous(breaks=seq(-1, 3, 1))+
+          scale_x_continuous(breaks=seq(-150,600,50))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey") 
+```
+
+```{r max_get_ampl_in_tws, include = FALSE}
+ 
+#### Get grand-averaged P1/N170 peaks 
+
+  # max_grandav = grand-averaged signal across emotion, ROIs, participants
+ 
+  ## P1 
+   
+    # Get values between 100-200 ms
+     max_grandav_P1 = subset(max_grandav, time > 100 & time < 200)
+    
+    # Get local maximum in this time range
+     loc_max = which(max_grandav_P1 == max(max_grandav_P1$mean), arr.ind=T)
+     
+    # Locate time for peak
+     peak_P1 = max_grandav_P1$time[loc_max[1]]
+   
+  
+  ## N170 
+   
+    # Get values between 201-300 ms
+     min_grandav_N170 = subset(max_grandav, time > 201 & time < 300)
+    
+    # Get local minimum in this time range
+     loc_min = which(min_grandav_N170 == min(min_grandav_N170$mean), arr.ind=T)
+     
+    # Locate time for peak
+     peak_N170 = min_grandav_N170$time[loc_min[1]]
+     
+     
+  ## P3
+   
+    # Get values between 350-450 ms
+     max_grandav_P3 = subset(max_grandav, time > 350 & time < 450)
+    
+    # Get local maximum in this time range
+     loc_max = which(max_grandav_P3 == max(max_grandav_P3$mean), arr.ind=T)
+     
+    # Locate time for peak
+     peak_P3 = max_grandav_P3$time[loc_max[1]] 
+   
+## Calculate average of ROI and emotion for each participant across time
+ 
+   # Select data   
+     max_elec_emo = subset(max_traj, select=c(ID, time, emotion, PO3, PO7, PO9, PO4, PO8, PO10))
+    
+   # Average across ROI 
+     max_emo = data.frame(ID = max_elec_emo[,1],
+                                        time = max_elec_emo[,2],
+                                        emotion = max_elec_emo[,3],
+                                        mean = rowMeans(max_elec_emo[,4:8]))
+     
+    # Average across emotion  
+     max_av_indiv = aggregate(mean ~ time + ID, max_emo, mean)
+     
+     
+    # Prep for latencies
+     max_elec_lot = data.frame(ID = max_elec_emo[,1],
+                                        time = max_elec_emo[,2],
+                                        emotion = max_elec_emo[,3],
+                                        mean_lot = rowMeans(max_elec_emo[,4:6]))
+                               
+    max_elec_rot = data.frame(ID = max_elec_emo[,1],
+                                        time = max_elec_emo[,2],
+                                        emotion = max_elec_emo[,3],
+                                        mean_rot = rowMeans(max_elec_emo[,7:9]))
+     
+     max_elec_lot_hap = subset(max_elec_lot, emotion == "happy")
+     max_elec_lot_ang = subset(max_elec_lot, emotion == "angry")
+     
+     max_elec_rot_hap = subset(max_elec_rot, emotion == "happy")
+     max_elec_rot_ang = subset(max_elec_rot, emotion == "angry")
+     
+
+## For each participant Select individual peak around grand-averaged peak
+    
+  ## P1 / N170   
+  
+      for (i in 1:max(max_av_indiv$ID)){
+      
+     # Get individual time series and values between +/- 10ms of P1/N170/P3 peak     
+      max_indiv_time_ser_P1 = subset(max_av_indiv, ID == qn_data$ID[i] & time > peak_P1-10 & time < peak_P1+10)
+      min_indiv_time_ser_N170 = subset(max_av_indiv, ID == qn_data$ID[i] & time > peak_N170-10 & time < peak_N170+10)
+      max_indiv_time_ser_P3 = subset(max_av_indiv, ID == qn_data$ID[i] & time > peak_P3-10 & time < peak_P3+10)
+       
+     # Amplitude: Get time point for local maxima 
+      loc_max_P1 = which(max_indiv_time_ser_P1 == max(max_indiv_time_ser_P1$mean), arr.ind=T)
+      loc_min_N170 = which(min_indiv_time_ser_N170 == min(min_indiv_time_ser_N170$mean), arr.ind=T)
+      loc_max_P3 = which(max_indiv_time_ser_P3 == max(max_indiv_time_ser_P3$mean), arr.ind=T)
+  
+     # Amplitude - Locate individual time point for peak ERP value 
+      peak_P1_indiv = max_indiv_time_ser_P1$time[loc_max_P1[1]]
+      peak_N170_indiv = min_indiv_time_ser_N170$time[loc_min_N170[1]]
+      peak_P3_indiv = max_indiv_time_ser_P3$time[loc_max_P3[1]]
+      
+    # Retrieve whole data set
+      max_whole_indiv_time_ser_P1 = subset(max_elec_emo, ID == qn_data$ID[i] & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      min_whole_indiv_time_ser_N170 = subset(max_elec_emo, ID ==  qn_data$ID[i] & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      max_whole_indiv_time_ser_P3 = subset(max_elec_emo, ID ==  qn_data$ID[i] & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+
+    # Separate for emotions  
+      max_sel_indiv_time_hap_P1 = subset(max_whole_indiv_time_ser_P1, emotion == "happy")
+      max_sel_indiv_time_ang_P1 = subset(max_whole_indiv_time_ser_P1, emotion == "angry")
+      
+      min_sel_indiv_time_hap_N170 = subset(min_whole_indiv_time_ser_N170, emotion == "happy")
+      min_sel_indiv_time_ang_N170 = subset(min_whole_indiv_time_ser_N170, emotion == "angry")
+      
+      max_sel_indiv_time_hap_P3 = subset(max_whole_indiv_time_ser_P3, emotion == "happy")
+      max_sel_indiv_time_ang_P3 = subset(max_whole_indiv_time_ser_P3, emotion == "angry")
+      
+    # Get mean per electrode  
+      max_indiv_hap_elec_P1 = colMeans(max_sel_indiv_time_hap_P1[sapply(max_sel_indiv_time_hap_P1, is.numeric)])
+      max_indiv_ang_elec_P1 = colMeans(max_sel_indiv_time_ang_P1[sapply(max_sel_indiv_time_ang_P1, is.numeric)])
+      
+      min_indiv_hap_elec_N170 = colMeans(min_sel_indiv_time_hap_N170[sapply(min_sel_indiv_time_hap_N170, is.numeric)])
+      min_indiv_ang_elec_N170 = colMeans(min_sel_indiv_time_ang_N170[sapply(min_sel_indiv_time_ang_N170, is.numeric)])
+      
+      max_indiv_hap_elec_P3 = colMeans(max_sel_indiv_time_hap_P3[sapply(max_sel_indiv_time_hap_P3, is.numeric)])
+      max_indiv_ang_elec_P3 = colMeans(max_sel_indiv_time_ang_P3[sapply(max_sel_indiv_time_ang_P3, is.numeric)])
+    
+    # Get mean for each ROI: happy 
+      max_indiv_hap_ROI_P1 = data.frame(ID = max_indiv_hap_elec_P1[1],
+                                                lOT = mean(max_indiv_hap_elec_P1[3:5]), 
+                                                rOT =  mean(max_indiv_hap_elec_P1[6:8]))
+      
+      min_indiv_hap_ROI_N170 = data.frame(ID = min_indiv_hap_elec_N170[1],
+                                                lOT = mean(min_indiv_hap_elec_N170[3:5]), 
+                                                rOT =  mean(min_indiv_hap_elec_N170[6:8]))
+      
+      max_indiv_hap_ROI_P3 = data.frame(ID = max_indiv_hap_elec_P3[1],
+                                                lOT = mean(max_indiv_hap_elec_P3[3:5]), 
+                                                rOT =  mean(max_indiv_hap_elec_P3[6:8]))
+      
+    # Get mean for each ROI: angry  
+      max_indiv_ang_ROI_P1 = data.frame(ID = max_indiv_ang_elec_P1[1],
+                                                lOT = mean(max_indiv_ang_elec_P1[3:5]), 
+                                                rOT =  mean(max_indiv_ang_elec_P1[6:8]))
+      
+      min_indiv_ang_ROI_N170 = data.frame(ID = min_indiv_ang_elec_N170[1],
+                                                lOT = mean(min_indiv_ang_elec_N170[3:5]), 
+                                                rOT = mean(min_indiv_ang_elec_N170[6:8]))
+      
+      max_indiv_ang_ROI_P3 = data.frame(ID = max_indiv_ang_elec_P3[1],
+                                                lOT = mean(max_indiv_ang_elec_P3[3:5]), 
+                                                rOT =  mean(max_indiv_ang_elec_P3[6:8]))
+      
+      
+    # Latency: select time window for peak 
+      indiv_time_P1_lat_hap_lot = subset(max_elec_lot_hap, ID == qn_data$ID[i] & time > peak_P1-10 & time < peak_P1+10)
+      indiv_time_P1_lat_ang_lot = subset(max_elec_lot_ang, ID == qn_data$ID[i] & time > peak_P1-10 & time < peak_P1+10)
+      indiv_time_P1_lat_hap_rot = subset(max_elec_rot_hap, ID == qn_data$ID[i] & time > peak_P1-10 & time < peak_P1+10)
+      indiv_time_P1_lat_ang_rot = subset(max_elec_rot_ang, ID == qn_data$ID[i] & time > peak_P1-10 & time < peak_P1+10)
+      
+      indiv_time_N170_lat_hap_lot = subset(max_elec_lot_hap, ID == qn_data$ID[i] & time > peak_N170-10 & time < peak_N170+10)
+      indiv_time_N170_lat_ang_lot = subset(max_elec_lot_ang, ID == qn_data$ID[i] & time > peak_N170-10 & time < peak_N170+10)
+      indiv_time_N170_lat_hap_rot = subset(max_elec_rot_hap, ID == qn_data$ID[i] & time > peak_N170-10 & time < peak_N170+10)
+      indiv_time_N170_lat_ang_rot = subset(max_elec_rot_ang, ID == qn_data$ID[i] & time > peak_N170-10 & time < peak_N170+10)
+      
+    # Latency: Get row number of peak latency
+      loc_max_P1_lat_hap_lot = which(indiv_time_P1_lat_hap_lot == max(indiv_time_P1_lat_hap_lot$mean_lot), arr.ind=T)
+      loc_max_P1_lat_ang_lot = which(indiv_time_P1_lat_ang_lot == max(indiv_time_P1_lat_ang_lot$mean_lot), arr.ind=T)
+      loc_max_P1_lat_hap_rot = which(indiv_time_P1_lat_hap_rot == max(indiv_time_P1_lat_hap_rot$mean_rot), arr.ind=T)
+      loc_max_P1_lat_ang_rot = which(indiv_time_P1_lat_ang_rot == max(indiv_time_P1_lat_ang_rot$mean_rot), arr.ind=T)
+      
+      loc_min_N170_lat_hap_lot = which(indiv_time_N170_lat_hap_lot == min(indiv_time_N170_lat_hap_lot$mean_lot), arr.ind=T)
+      loc_min_N170_lat_ang_lot = which(indiv_time_N170_lat_ang_lot == min(indiv_time_N170_lat_ang_lot$mean_lot), arr.ind=T)
+      loc_min_N170_lat_hap_rot = which(indiv_time_N170_lat_hap_rot == min(indiv_time_N170_lat_hap_rot$mean_rot), arr.ind=T)
+      loc_min_N170_lat_ang_rot = which(indiv_time_N170_lat_ang_rot == min(indiv_time_N170_lat_ang_rot$mean_rot), arr.ind=T)
+      
+    # Latency - Locate individual latency with row value 
+      peak_P1_indiv_lat_hap_lot = indiv_time_P1_lat_hap_lot[loc_max_P1_lat_hap_lot[1],2]
+      peak_P1_indiv_lat_ang_lot = indiv_time_P1_lat_ang_lot[loc_max_P1_lat_ang_lot[1],2]
+      peak_P1_indiv_lat_hap_rot = indiv_time_P1_lat_hap_rot[loc_max_P1_lat_hap_rot[1],2]
+      peak_P1_indiv_lat_ang_rot = indiv_time_P1_lat_ang_rot[loc_max_P1_lat_ang_rot[1],2]
+      
+      peak_N170_indiv_lat_hap_lot = indiv_time_N170_lat_hap_lot[loc_min_N170_lat_hap_lot[1],2]
+      peak_N170_indiv_lat_ang_lot = indiv_time_N170_lat_ang_lot[loc_min_N170_lat_ang_lot[1],2]
+      peak_N170_indiv_lat_hap_rot = indiv_time_N170_lat_hap_rot[loc_min_N170_lat_hap_rot[1],2]
+      peak_N170_indiv_lat_ang_rot = indiv_time_N170_lat_ang_rot[loc_min_N170_lat_ang_rot[1],2]
+      
+    # Latency dataframe
+      indiv_lat_P1 = data.frame(ID = c(qn_data$ID[i], qn_data$ID[i], qn_data$ID[i], qn_data$ID[i]),
+                                        emotion = c("happy", "angry", "happy", "angry"),
+                                        ROI = c("lot", "lot", "rot", "rot"),
+                                        lat = c(peak_P1_indiv_lat_hap_lot, peak_P1_indiv_lat_ang_lot, peak_P1_indiv_lat_hap_rot,
+                                                peak_P1_indiv_lat_ang_rot))
+      
+      indiv_lat_N170 = data.frame(ID = c(qn_data$ID[i], qn_data$ID[i], qn_data$ID[i], qn_data$ID[i]),
+                                        emotion = c("happy", "angry", "happy", "angry"),
+                                        ROI = c("lot", "lot", "rot", "rot"),
+                                        lat = c(peak_N170_indiv_lat_hap_lot, peak_N170_indiv_lat_ang_lot, peak_N170_indiv_lat_hap_rot,
+                                                peak_N170_indiv_lat_ang_rot))
+      
+    # Write data into one dataframe   
+      if (i == 1) {
+      
+      max_mean_amp_P1_hap = max_indiv_hap_ROI_P1
+      max_mean_amp_P1_ang = max_indiv_ang_ROI_P1
+      min_mean_amp_N170_hap = min_indiv_hap_ROI_N170
+      min_mean_amp_N170_ang = min_indiv_ang_ROI_N170
+      max_mean_amp_P3_hap = max_indiv_hap_ROI_P3
+      max_mean_amp_P3_ang = max_indiv_ang_ROI_P3
+      
+      peak_lat_P1 = indiv_lat_P1
+      peak_lat_N170 = indiv_lat_N170
+      
+      } else {
+      
+      max_mean_amp_P1_hap = rbind(max_mean_amp_P1_hap, max_indiv_hap_ROI_P1)
+      max_mean_amp_P1_ang = rbind(max_mean_amp_P1_ang, max_indiv_ang_ROI_P1)
+      min_mean_amp_N170_hap = rbind(min_mean_amp_N170_hap, min_indiv_hap_ROI_N170)
+      min_mean_amp_N170_ang = rbind(min_mean_amp_N170_ang, min_indiv_ang_ROI_N170)
+      max_mean_amp_P3_hap = rbind(max_mean_amp_P3_hap, max_indiv_hap_ROI_P3)
+      max_mean_amp_P3_ang = rbind(max_mean_amp_P3_ang, max_indiv_ang_ROI_P3)
+      
+      peak_lat_P1 = rbind(peak_lat_P1, indiv_lat_P1)
+      peak_lat_N170 = rbind(peak_lat_N170, indiv_lat_N170)
+      
+      }
+      
+  }
+      
+  # Add emotion categories   
+    max_mean_amp_P1_hap$emotion = "happy" 
+    max_mean_amp_P1_ang$emotion = "angry" 
+    min_mean_amp_N170_hap$emotion = "happy" 
+    min_mean_amp_N170_ang$emotion = "angry"
+    max_mean_amp_P3_hap$emotion = "happy" 
+    max_mean_amp_P3_ang$emotion = "angry" 
+    
+  # Combine data sets 
+    max_mean_amp_P1 = rbind(max_mean_amp_P1_hap,max_mean_amp_P1_ang)
+    min_mean_amp_N170 = rbind(min_mean_amp_N170_hap,min_mean_amp_N170_ang)   
+    max_mean_amp_P3 = rbind(max_mean_amp_P3_hap,max_mean_amp_P3_ang)
+    
+    max_mean_amp_P1 = max_mean_amp_P1[complete.cases(max_mean_amp_P1), ]
+    min_mean_amp_N170 = min_mean_amp_N170[complete.cases(min_mean_amp_N170), ]
+    max_mean_amp_P3 = max_mean_amp_P3[complete.cases(max_mean_amp_P3), ]
+    
+    
+    peak_lat_P1 = peak_lat_P1[complete.cases(peak_lat_P1), ]
+    peak_lat_N170 = peak_lat_N170[complete.cases(peak_lat_N170), ]
+
+```
+
+### Mean amplitude
+
+```{r ANOVA_P1_amp, results = "asis"}
+
+  max_mean_amp_P1$group = qn_data$group[match(max_mean_amp_P1$ID,qn_data$ID,nomatch = NA)]
+
+
+  max_mean_amp_P1 = gather(max_mean_amp_P1, ROI, amp, lOT:rOT,
+                              factor_key=TRUE)
+  
+ P1_an = aov_ez("ID", "amp", max_mean_amp_P1, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P1_an$anova_table)   
+  
+```
+
+```{r ANOVA_N170_amp, results = "asis"}
+
+  min_mean_amp_N170$group = qn_data$group[match(min_mean_amp_N170$ID,qn_data$ID,nomatch = NA)]
+
+  min_mean_amp_N170 = gather(min_mean_amp_N170, ROI, amp, lOT:rOT, factor_key=TRUE)
+  
+  N170_an = aov_ez("ID", "amp", min_mean_amp_N170, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(N170_an$anova_table)   
+  
+```
+
+```{r ANOVA_N170_posthoc, results = "asis"}
+
+library(emmeans)
+
+# Do post-hoc test 
+  N170_amp_ph = emmeans(N170_an, ~ "group", by = "emotion")
+  
+  N170_amp_ph_all_emo = print(pairs(N170_amp_ph))
+  
+  pander(N170_amp_ph_all_emo)
+  
+```
+
+```{r ANOVA_P3_amp, results = "asis"}
+
+  max_mean_amp_P3$group = qn_data$group[match(max_mean_amp_P3$ID,qn_data$ID,nomatch = NA)]
+
+  max_mean_amp_P3 = gather(max_mean_amp_P3, ROI, amp, lOT:rOT,
+                              factor_key=TRUE)
+  
+ P3_an = aov_ez("ID", "amp", max_mean_amp_P3, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P3_an$anova_table)   
+  
+```
+
+```{r ANOVA_P3_posthoc, results = "asis"}
+# Do post-hoc test 
+  P3_amp_ph = emmeans(P3_an, ~ "emotion", by = c("ROI","group"))
+  
+  P3_amp_ph_all_emo = print(pairs(P3_amp_ph))
+  
+  
+  pander(P3_amp_ph_all_emo)
+  
+```
+
+### Peak latency
+
+```{r ANOVA_P1_lat, results = "asis"}
+
+  peak_lat_P1$group = qn_data$group[match(peak_lat_P1$ID,qn_data$ID,nomatch = NA)]
+
+
+  P1_lat_an = aov_ez("ID", "lat", peak_lat_P1, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P1_lat_an$anova_table)   
+  
+```
+
+```{r ANOVA_N170_lat, results = "asis"}
+
+  peak_lat_N170$group = qn_data$group[match(peak_lat_N170$ID,qn_data$ID,nomatch = NA)]
+
+
+  N170_lat_an = aov_ez("ID", "lat", peak_lat_N170, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(N170_lat_an$anova_table)   
+  
+```
+
+### LMMs
+
+```{r LMM_P1, results = "asis"}
+
+# Load data
+  max_P1_amp = read.delim("./data/max_P1_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+# Recode emotion condition  
+  max_P1_amp =  max_P1_amp %>% mutate(emotion=recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+       
+       
+  max_P1_amp$emotion = factor(max_P1_amp$emotion,
+                                  levels=c("happy","angry"))
+  
+# Define effect coding contrast for emotion 
+  contrasts(max_P1_amp$emotion) = contr.treatment(2) 
+
+# Convert ID into factor variables
+  max_P1_amp = max_P1_amp %>%
+  convert_as_factor(ID)
+
+# Go from wide to long format
+  max_P1_amp = gather(max_P1_amp, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  max_P1_amp = max_P1_amp %>%
+  convert_as_factor(elec)
+
+  
+# Recode ROI condition  
+  max_P1_amp$ROI = NA
+  max_P1_amp[max_P1_amp$elec == "PO7" | max_P1_amp$elec == "PO3"  | max_P1_amp$elec == "PO9",]$ROI = "lOT"
+  max_P1_amp[max_P1_amp$elec == "PO8" | max_P1_amp$elec == "PO4"  | max_P1_amp$elec == "PO10",]$ROI = "rOT"
+  max_P1_amp[max_P1_amp$elec == "O1" | max_P1_amp$elec == "O2"  | max_P1_amp$elec == "Oz",]$ROI = "MO"
+  
+# Factor ROI
+ max_P1_amp$ROI = factor(max_P1_amp$ROI,
+                                  levels=c("MO","lOT","rOT"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_P1_amp$ROI) = contr.treatment(3, base = 1)
+
+# Add group  
+  max_P1_amp$group = qn_data$group[match(max_P1_amp$ID,qn_data$ID,nomatch = NA)]
+  
+# Factor group
+ max_P1_amp$group = factor(max_P1_amp$group,
+                                  levels=c("CG","TG"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_P1_amp$group) = contr.treatment(2)  
+
+# Final model
+  mod_maxP1_lmer1 = lmer(amp ~ group*emotion + ROI +
+                            (1 |ID),
+                            data = max_P1_amp,
+                            control=lmerControl(calc.derivs = FALSE), REML = FALSE)
+
+  
+  labels = c("Intercept","CG vs. TG", "Happy vs. Angry", "MO vs. lOT", "MO vs. rOT", "Group x Emotion")
+  
+# Create table
+  tab_model(mod_maxP1_lmer1, pred.labels = labels)
+  
+  plot_model(mod_maxP1_lmer1, type = "pred", terms = c("group"))
+  plot_model(mod_maxP1_lmer1, type = "pred", terms = c("emotion"))  
+
+```
+
+```{r LMM_N170, results = "asis"}
+
+# Load data
+  max_N170_amp = read.delim("./data/max_N170_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+# Recode emotion condition  
+  max_N170_amp =  max_N170_amp %>% mutate(emotion=recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+       
+       
+  max_N170_amp$emotion = factor(max_N170_amp$emotion,
+                                  levels=c("happy","angry"))
+  
+# Define effect coding contrast for emotion 
+  contrasts(max_N170_amp$emotion) = contr.treatment(2) 
+
+# Convert ID into factor variables
+  max_N170_amp = max_N170_amp %>%
+  convert_as_factor(ID)
+
+# Go from wide to long format
+  max_N170_amp = gather(max_N170_amp, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  max_N170_amp = max_N170_amp %>%
+  convert_as_factor(elec)
+
+
+# Recode ROI condition  
+  max_N170_amp$ROI = NA
+  max_N170_amp[max_N170_amp$elec == "PO7" | max_N170_amp$elec == "PO3"  | max_N170_amp$elec == "PO9",]$ROI = "lOT"
+  max_N170_amp[max_N170_amp$elec == "PO8" | max_N170_amp$elec == "PO4"  | max_N170_amp$elec == "PO10",]$ROI = "rOT"
+  max_N170_amp[max_P1_amp$elec == "O1" | max_N170_amp$elec == "O2"  | max_N170_amp$elec == "Oz",]$ROI = "MO"
+  
+
+# Factor ROI
+ max_N170_amp$ROI = factor(max_N170_amp$ROI,
+                                  levels=c("MO","lOT","rOT"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_N170_amp$ROI) = contr.treatment(3, base = 1)
+
+# Add group  
+  max_N170_amp$group = qn_data$group[match(max_N170_amp$ID,qn_data$ID,nomatch = NA)]
+  
+# Factor group
+ max_N170_amp$group = factor(max_N170_amp$group,
+                                  levels=c("CG","TG"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_N170_amp$group) = contr.treatment(2)  
+
+# Final model
+  mod_maxN170_lmer1 = lmer(amp ~ group*emotion + ROI +
+                            (1 |ID),
+                            data = max_N170_amp,
+                            control=lmerControl(calc.derivs = FALSE), REML = FALSE)
+
+  labels = c("Intercept","CG vs. TG", "Happy vs. Angry", "MO vs. lOT", "MO vs. rOT", "Group x Emotion")
+  
+# Create table
+  tab_model(mod_maxN170_lmer1, pred.labels = labels)
+  
+   plot_model(mod_maxP3_lmer1, type = "pred", terms = c("emotion","group"))  
+
+    plot_model(mod_maxP3_lmer1, type = "pred", terms = c("emotion"))  
+    
+      plot_model(mod_maxP3_lmer1, type = "pred", terms = c("group"))  
+
+   
+```
+
+
+```{r N170_posthoc, results = "asis"}
+
+max_N170_amp$interaction = interaction(max_N170_amp$group, max_N170_amp$emotion)
+
+ mod_N170_ph = lmer(amp ~ interaction + ROI + 
+                          (1 |ID),
+                          data = max_N170_amp,
+                          control=lmerControl(calc.derivs = FALSE)) 
+
+  library(multcomp)
+  
+# Select contrasts of interest
+  mod_N170_posthoc =  summary(glht(mod_N170_ph, linfct=mcp(interaction = "Tukey")))
+  
+  
+  
+  # mod_N170_posthoc =  summary(glht(mod_N170_ph, linfct=mcp(interaction= c("CG.angry - TG.angry = 0",
+  #                                                                               "CG.angry - TG.happy = 0",
+  #                                                                               "CG.happy - TG.happy = 0",
+  #                                                                               "TG.angry - CG.happy = 0"
+  #                                                                               )),test = adjusted(type = "fdr")))
+  
+  
+# Get ready for presentation in RMarkdown
+  tab1 = merge(as.data.frame(mod_N170_posthoc$test$coefficients),as.data.frame(mod_N170_posthoc$test$sigma),by=0)
+  tab2 = as.data.frame(mod_N170_posthoc$test$pvalues)
+  rownames(tab2) = rownames(as.data.frame(mod_N170_posthoc$test$tstat))
+  tab2 = merge(as.data.frame(mod_N170_posthoc$test$tstat),tab2,by=0)
+  mod_N170_ph_test = merge(tab1,tab2,by='Row.names')
+  colnames(mod_N170_ph_test) = c("Contrast","Est.","Std. Error", "z value", "p value")
+  
+  
+# Create table
+  kable(mod_N170_ph_test) %>% 
+    kable_styling(bootstrap_options = c("hover"), font_size = 14,fixed_thead = T)    
+
+```
+
+
+```{r LMM_P3, results = "asis"}
+
+# Load data
+  max_P3_amp = read.delim("./data/max_P3_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+# Recode emotion condition  
+  max_P3_amp =  max_P3_amp %>% mutate(emotion=recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+       
+       
+  max_P3_amp$emotion = factor(max_P3_amp$emotion,
+                                  levels=c("happy","angry"))
+  
+# Define effect coding contrast for emotion 
+  contrasts(max_P3_amp$emotion) = contr.treatment(2) 
+
+# Convert ID into factor variables
+  max_P3_amp = max_P3_amp %>%
+  convert_as_factor(ID)
+
+# Go from wide to long format
+  max_P3_amp = gather(max_P3_amp, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  max_P3_amp = max_P3_amp %>%
+  convert_as_factor(elec)
+
+  
+# Recode ROI condition  
+  max_P3_amp$ROI = NA
+  max_P3_amp[max_P3_amp$elec == "PO7" | max_P3_amp$elec == "PO3"  | max_P3_amp$elec == "PO9",]$ROI = "lOT"
+  max_P3_amp[max_P3_amp$elec == "PO8" | max_P3_amp$elec == "PO4"  | max_P3_amp$elec == "PO10",]$ROI = "rOT"
+  max_P3_amp[max_P3_amp$elec == "O1" | max_P3_amp$elec == "O2"  | max_P3_amp$elec == "Oz",]$ROI = "MO"
+  
+# Factor ROI
+ max_P3_amp$ROI = factor(max_P3_amp$ROI,
+                                  levels=c("MO","lOT","rOT"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_P3_amp$ROI) = contr.treatment(3, base = 1)
+
+# Add group  
+  max_P3_amp$group = qn_data$group[match(max_P3_amp$ID,qn_data$ID,nomatch = NA)]
+  
+# Factor group
+ max_P3_amp$group = factor(max_P3_amp$group,
+                                  levels=c("CG","TG"))
+
+# Define effect coding contrast for ROI
+  contrasts(max_P3_amp$group) = contr.treatment(2)  
+
+# Final model
+  mod_maxP3_lmer1 = lmer(amp ~ group*emotion + ROI +
+                            (1 |ID),
+                            data = max_P3_amp,
+                            control=lmerControl(calc.derivs = FALSE), REML = FALSE)
+
+  
+  labels = c("Intercept","CG vs. TG", "Happy vs. Angry", "MO vs. lOT", "MO vs. rOT", "Group x Emotion")
+  
+# Create table
+  tab_model(mod_maxP3_lmer1, pred.labels = labels)
+  
+  plot_model(mod_maxP3_lmer1, type = "pred", terms = c("group"))
+  plot_model(mod_maxP3_lmer1, type = "pred", terms = c("emotion"))  
+
+```
+
+
+```{r P3_posthoc, results = "asis"}
+
+ max_P3_amp$interaction = interaction(max_P3_amp$group, max_P3_amp$emotion)
+
+ mod_P3_ph = lmer(amp ~ interaction + ROI + 
+                          (1 |ID),
+                          data = max_P3_amp,
+                          control=lmerControl(calc.derivs = FALSE)) 
+
+  library(multcomp)
+  
+# Select contrasts of interest
+  mod_P3_posthoc =  summary(glht(mod_P3_ph, linfct=mcp(interaction = "Tukey")))
+  
+  
+  
+  # mod_P3_posthoc =  summary(glht(mod_P3_ph, linfct=mcp(interaction= c("CG.angry - TG.angry = 0",
+  #                                                                               "CG.angry - TG.happy = 0",
+  #                                                                               "CG.happy - TG.happy = 0",
+  #                                                                               "TG.angry - CG.happy = 0"
+  #                                                                               )),test = adjusted(type = "fdr")))
+  
+  
+# Get ready for presentation in RMarkdown
+  tab1 = merge(as.data.frame(mod_P3_posthoc$test$coefficients),as.data.frame(mod_P3_posthoc$test$sigma),by=0)
+  tab2 = as.data.frame(mod_P3_posthoc$test$pvalues)
+  rownames(tab2) = rownames(as.data.frame(mod_P3_posthoc$test$tstat))
+  tab2 = merge(as.data.frame(mod_P3_posthoc$test$tstat),tab2,by=0)
+  mod_P3_ph_test = merge(tab1,tab2,by='Row.names')
+  colnames(mod_P3_ph_test) = c("Contrast","Est.","Std. Error", "z value", "p value")
+  
+  
+# Create table
+  kable(mod_P3_ph_test) %>% 
+    kable_styling(bootstrap_options = c("hover"), font_size = 14,fixed_thead = T)    
+  
+```
+

@@ -10,6 +10,12 @@ navbar:
     - text: "Sample description"
       icon: glyphicon glyphicon-education
       href: Script_1_Sampl_Descr.html
+    - text: "ERT"
+      icon: glyphicon glyphicon-hand-up
+      href: Script_2_ERT.html
+    - text: "Max-Face"
+      icon: glyphicon glyphicon-tree-conifer
+      href: Script_3_Max_Face.html
   right:
     - icon: ai ai-osf ai-lg
       href: https://osf.io/nas48/ 
