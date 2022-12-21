@@ -41,49 +41,32 @@ output:
   library(rmdformats)
   library(summarytools)
   library(XLConnect)
-  
-
-
-  
       
 ```
 
-
 ```{r, load_data, include=FALSE}
   
-# Load questionnaire data
-  qn_data = readWorksheetFromFile("./data/qn_data.xlsx",
-                             sheet = 1,
-                             startCol = 1,
-                             endCol = 0)
-  
-# Re-code gender
-  qn_data$sex[qn_data$sex == 1] = "Male"
-  qn_data$sex[qn_data$sex == 2] = "Female"
-  
-# Re-code training group
-  qn_data$group[qn_data$group == "ZE"] = "TG"
-  qn_data$group[qn_data$group == "SB"] = "CG"
+# Load qn_data
+  load.Rdata(filename="./data/qn_data.Rdata", "qn_data")
 
-# Define N/A data
-  qn_data[qn_data==-99] = NA
+# Exclude (EEG_Max = 0) participants with no eligible FPVS max-int data
+  qn_data_max = subset(qn_data, EEG_Max == 1)
   
-# Calculate age (Extract age from birth/test date)
-  qn_data$age = as.numeric(cbind(age_calc(as.Date(qn_data$birth_date),
-                                     as.Date(qn_data$test_date), units = "years"))) 
+# Exclude (EEG_Grad = 0) participants with no eligible FPVS grad-int data
+  qn_data_grad = subset(qn_data, EEG_Grad == 1)  
   
-# Exclude participants with no FPVS max-face data
-  qn_data = subset(qn_data, EEG_Max == 1)
 ```
+
+# Demographics max-int
 
 <div align="center">
 
-```{r demog_table, results = 'asis', align = "center"}
+```{r demog_table_max_face, results = 'asis', align = "center"}
 
 # http://www.danieldsjoberg.com/gtsummary/
 
 # Select srceening variables
-  qn_data_demog = subset(qn_data, select = c(group, age, sex, T_Self_Report, train_weeks, CPM, PPVT_perc))
+  qn_data_demog = subset(qn_data_max, select = c(group, age, sex, T_Self_Report, train_weeks, CPM, PPVT_perc, wink_ind))
 
 # Apply labels
   qn_data_demog = apply_labels(qn_data_demog,
@@ -91,17 +74,25 @@ output:
                       sex = "Sex",
                       PPVT_perc = "PPVT (percentiles)",
                       T_Self_Report = "Training time (min)",
-                      train_weeks = "Training duration (weeks)")
+                      train_weeks = "Training duration (weeks)",
+                      wink_ind = "SES (Winkler index)")
 
+# Make SES categorical variable
+  qn_data_demog$wink_ind = factor(qn_data_demog$wink_ind)  
+  
 # Prepare table
   demog_table =
     tbl_summary(
       qn_data_demog,
-      by = group, # split table by group
+     # by = group, # split table by group
+      type = c(age, PPVT_perc, T_Self_Report, train_weeks, CPM) ~ "continuous",
+      statistic = list(all_continuous() ~ "{mean} ({sd})", # descriptives definition
+                     all_categorical() ~ "{n} / {N} ({p}%)"),
+      digits = all_continuous() ~ 2,
       missing = "no" # don't list missing data separately
     ) %>%
     add_n() %>% # add column with total number of non-missing observations
-    add_p() %>% # test for a difference between groups
+   # add_p() %>% # test for a difference between groups
     modify_header(label = "**Variable**") %>% # update the column header
     bold_labels()
   
@@ -111,3 +102,127 @@ output:
 ```
 
 </div>
+
+# Demographics grad-int
+
+<div align="center">
+
+```{r demog_table_grad_face, results = 'asis', align = "center"}
+
+# http://www.danieldsjoberg.com/gtsummary/
+
+# Select srceening variables
+  qn_data_demog = subset(qn_data_grad, select = c(group, age, sex, T_Self_Report, train_weeks, CPM, PPVT_perc, wink_ind))
+
+# Apply labels
+  qn_data_demog = apply_labels(qn_data_demog,
+                      age = "Age",
+                      sex = "Sex",
+                      PPVT_perc = "PPVT (percentiles)",
+                      T_Self_Report = "Training time (min)",
+                      train_weeks = "Training duration (weeks)",
+                      wink_ind = "SES (Winkler index)")
+  
+  
+ # Make SES categorical variable
+  qn_data_demog$wink_ind = factor(qn_data_demog$wink_ind)   
+
+# Prepare table
+  demog_table =
+    tbl_summary(
+      qn_data_demog,
+    #  by = group, # split table by group
+      type = c(age, PPVT_perc, T_Self_Report, train_weeks, CPM) ~ "continuous",
+      statistic = list(all_continuous() ~ "{mean} ({sd})", # descriptives definition
+                     all_categorical() ~ "{n} / {N} ({p}%)"),
+      digits = all_continuous() ~ 2,
+      missing = "no" # don't list missing data separately
+    ) %>%
+    add_n() %>% # add column with total number of non-missing observations
+ #   add_p() %>% # test for a difference between groups
+    modify_header(label = "**Variable**") %>% # update the column header
+    bold_labels()
+  
+# Print table 
+  demog_table
+  
+```
+
+</div>
+
+# Session info
+
+<!-- Provide session info  -->
+
+```{r session_info, results = TRUE}
+
+# Get session info 
+  sessionInfo()
+
+```
+
+
+```{r erp_trials, eval = FALSE, include = FALSE}
+
+library(XLConnect)
+library(psych)
+
+# Load erp trial data
+  erp_trials = readWorksheetFromFile("./data/erp_trials.xlsx",
+                             sheet = 1,
+                             startCol = 1,
+                             endCol = 0)
+  
+# Select max data 
+  erp_trials_max = subset(erp_trials, EEG_Max == 1)
+
+  
+# Select max trials  
+  erp_trials_max = as.data.frame(c(erp_trials_max$ERPs_max_hap_epochs_rej,
+                           erp_trials_max$ERPs_max_ang_epochs_rej))
+
+# Re-stucture for analysis 
+  names(erp_trials_max)[1] <- "trial"
+  erp_trials_max$emo = c(rep("happy", 47), rep("angry", 47))
+  
+  erp_trials_max$emo = as.factor(erp_trials_max$emo)
+  erp_trials_max$trial = as.numeric(erp_trials_max$trial)
+  
+# Get number of trials left (90 trials per condition)
+  erp_trials_max$trial = 90 - erp_trials_max$trial
+  
+# Get mean / SD  
+  describeBy(erp_trials_max$trial, erp_trials_max$emo)
+
+# Calculate t-test  
+  t.test(erp_trials_max$trial~erp_trials_max$emo, var.equal = TRUE, alternative = "two.sided")
+  
+  
+# Select grad data   
+  erp_trials_grad = subset(erp_trials, EEG_Grad == 1)
+  
+  
+ # Select max trials  
+  erp_trials_grad = as.data.frame(c(erp_trials_grad$mean_hap_grad,
+                           erp_trials_grad$mean_ang_grad))
+
+# Re-stucture for analysis 
+  names(erp_trials_grad)[1] <- "trial"
+  erp_trials_grad$emo = c(rep("happy", 44), rep("angry", 44))
+  
+  erp_trials_grad$emo = as.factor(erp_trials_grad$emo)
+  erp_trials_grad$trial = as.numeric(erp_trials_grad$trial)
+  
+# Get number of trials left (90 trials per condition)
+  erp_trials_grad$trial = 44 - erp_trials_grad$trial
+  
+# Get mean / SD  
+  describeBy(erp_trials_grad$trial, erp_trials_grad$emo)
+
+# Calculate t-test  
+  t.test(erp_trials_grad$trial~erp_trials_grad$emo, var.equal = TRUE, alternative = "two.sided") 
+  
+  
+
+```
+

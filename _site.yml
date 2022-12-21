@@ -9,16 +9,19 @@ navbar:
       href: index.html
     - text: "Sample description"
       icon: glyphicon glyphicon-education
-      href: Script_1_Sampl_Descr.html
+      href: Script_1_Sample_Descr.html
     - text: "ERT"
       icon: glyphicon glyphicon-hand-up
-      href: Script_2_ERT.html
-    - text: "Max-Face"
-      icon: glyphicon glyphicon-tree-conifer
-      href: Script_3_Max_Face.html
+      href: Script_2_FPVS_Behav.html
+    - text: "max-int"
+      icon: glyphicon glyphicon-eye-open
+      href: Script_3_Max_Int.html
+    - text: "grad-int"
+      icon: glyphicon glyphicon-eye-close
+      href: Script_4_Grad_Int.html  
   right:
     - icon: ai ai-osf ai-lg
-      href: https://osf.io/nas48/ 
+      href: https://osf.io/8vuwt/ 
     - icon: fa-envelope fa-lg
       href: mailto:sandra.naumann@hu-berlin.de
       
