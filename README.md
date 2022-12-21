@@ -1,2 +1,2 @@
 # FPVS_kids
-Complete analysis of FPVS kids data collected during ZE training study 
+Analysis of FPVS kids data collected in the context of the ZE training study 
