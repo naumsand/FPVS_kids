@@ -1283,7 +1283,7 @@ theme(
     
 ```
 
-```{r BCA_expr_resp_topo_hap, results = "asis"}
+```{r BCA_expr_resp_topo_hap, include = FALSE, eval = FALSE, results = "asis"}
 
 lim_1 = -1
 lim_2 = 1.3
@@ -1406,7 +1406,7 @@ lim_2 = 1.3
       
 ```
 
-```{r BCA_expr_resp_topo_ang, results = "asis"}
+```{r BCA_expr_resp_topo_ang, include = FALSE, eval = FALSE, results = "asis"}
 
 lim_1 = -0.3
 lim_2 = 3.5
@@ -1610,9 +1610,9 @@ lim_2 = 3.5
 
 <!--- PDI = physical dissimilarity index --->
 
-### Base response
+<!-- ### Base response -->
 
-```{r LMM_grad_base_pdi, results = "asis"}
+```{r LMM_grad_base_pdi, results = "asis",include = FALSE, eval = FALSE}
 
 # https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
 
