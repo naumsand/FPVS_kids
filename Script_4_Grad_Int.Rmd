@@ -1282,6 +1282,7 @@ theme(
     
 ```
 
+
 ```{r BCA_expr_resp_topo_hap, results = "asis", eval = FALSE, include = FALSE}
 
 lim_1 = -1
@@ -1405,7 +1406,9 @@ lim_2 = 1.3
       
 ```
 
+
 ```{r BCA_expr_resp_topo_ang, results = "asis", eval = FALSE, include = FALSE}
+
 
 lim_1 = -0.3
 lim_2 = 3.5
@@ -1610,6 +1613,7 @@ lim_2 = 3.5
 <!--- PDI = physical dissimilarity index --->
 
 <!-- ### Base response -->
+
 
 ```{r LMM_grad_base_pdi, results = "asis", include = FALSE, eval = FALSE}
 
