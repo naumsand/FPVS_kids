@@ -491,9 +491,9 @@ theme(
     
 ```
 
-### SNR by group / emotion
+<!-- ### SNR by group / emotion -->
 
-```{r SNR_plot_hap, results = "asis", fig.height = 8, eval = FALSE}
+```{r SNR_plot_hap, results = "asis", fig.height = 8, include = FALSE, eval = FALSE}
 
 # For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
 
@@ -653,7 +653,7 @@ grad_oneh_hap
     
 ```
 
-```{r SNR_plot_hap_zoom, results = "asis", fig.height = 8, eval = FALSE}
+```{r SNR_plot_hap_zoom, results = "asis", fig.height = 8, include = FALSE, eval = FALSE}
 
 # For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
 
@@ -819,7 +819,7 @@ theme(
     
 ```
 
-```{r SNR_plot_ang, results = "asis", fig.height = 8, eval = FALSE}
+```{r SNR_plot_ang, results = "asis", fig.height = 8, include = FALSE, eval = FALSE}
 
 # For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
 
@@ -975,7 +975,7 @@ theme(
     
 ```
 
-```{r SNR_plot_ang_zoom, results = "asis", fig.height = 8, eval = FALSE}
+```{r SNR_plot_ang_zoom, results = "asis", fig.height = 8, include = FALSE, eval = FALSE}
 
 # For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
 
@@ -1141,7 +1141,6 @@ theme(
 ```
 
 
-
 ## BCA {.tabset .tabset-pills}
 
 ### Base response {.tabset .tabset-pills}
@@ -1283,7 +1282,8 @@ theme(
     
 ```
 
-```{r BCA_expr_resp_topo_hap, include = FALSE, eval = FALSE, results = "asis"}
+
+```{r BCA_expr_resp_topo_hap, results = "asis", eval = FALSE, include = FALSE}
 
 lim_1 = -1
 lim_2 = 1.3
@@ -1406,7 +1406,9 @@ lim_2 = 1.3
       
 ```
 
-```{r BCA_expr_resp_topo_ang, include = FALSE, eval = FALSE, results = "asis"}
+
+```{r BCA_expr_resp_topo_ang, results = "asis", eval = FALSE, include = FALSE}
+
 
 lim_1 = -0.3
 lim_2 = 3.5
@@ -1612,7 +1614,8 @@ lim_2 = 3.5
 
 <!-- ### Base response -->
 
-```{r LMM_grad_base_pdi, results = "asis",include = FALSE, eval = FALSE}
+
+```{r LMM_grad_base_pdi, results = "asis", include = FALSE, eval = FALSE}
 
 # https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
 
