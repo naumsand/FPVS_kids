@@ -237,60 +237,60 @@ ga_z_score_expr %>%
   
 #------------------------------------------------------------------------------------------------------------------------------------------------  
 
-# Subset for base 
-  max_topo_base = subset(max_topo, manip == "base")
-
-# Add group
-  max_topo_base$group = qn_data$group[match(max_topo_base$ID,qn_data$ID,nomatch = NA)]
-    
-# Subset for emotions
-  max_topo_base_hap = subset(max_topo_base, emotion == "happy")
-  max_topo_base_ang = subset(max_topo_base, emotion == "angry")
-    
-# Add montage
-  max_topo_base_hap = electrode_locations(max_topo_base_hap, electrode = "electrode",  drop = FALSE,
-                                          montage = NULL)
-  
-  max_topo_base_ang = electrode_locations(max_topo_base_ang, electrode = "electrode",  drop = FALSE,
-                                          montage = NULL)
-  
-  
-  topo_hap_base_all = ggplot(max_topo_base_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("happy")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)")))+
-                    theme(legend.position = "none")
-  
-  topo_ang_base_all = ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("angry")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)"))) +
-                    theme(legend.position = "none")
-  
-# Get legend 
-    topo_leg = get_legend(ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("angry")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)"))))
-    
-# Combine plots 
-   fig_max_base_topo_emotions = cowplot::plot_grid(topo_hap_base_all, topo_ang_base_all, topo_leg, nrow = 1, rel_heights = c(1, 1,.2))
-   fig_max_base_topo_emotions
-   
-# Save plots with transparent background     
-  ggsave("./figures/max_base_topo_emotions.png", bg = "transparent", dpi = 300)    
+# # Subset for base 
+#   max_topo_base = subset(max_topo, manip == "base")
+# 
+# # Add group
+#   max_topo_base$group = qn_data$group[match(max_topo_base$ID,qn_data$ID,nomatch = NA)]
+#     
+# # Subset for emotions
+#   max_topo_base_hap = subset(max_topo_base, emotion == "happy")
+#   max_topo_base_ang = subset(max_topo_base, emotion == "angry")
+#     
+# # Add montage
+#   max_topo_base_hap = electrode_locations(max_topo_base_hap, electrode = "electrode",  drop = FALSE,
+#                                           montage = NULL)
+#   
+#   max_topo_base_ang = electrode_locations(max_topo_base_ang, electrode = "electrode",  drop = FALSE,
+#                                           montage = NULL)
+#   
+#   
+#   topo_hap_base_all = ggplot(max_topo_base_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("happy")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)")))+
+#                     theme(legend.position = "none")
+#   
+#   topo_ang_base_all = ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("angry")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)"))) +
+#                     theme(legend.position = "none")
+#   
+# # Get legend 
+#     topo_leg = get_legend(ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("angry")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)"))))
+#     
+# # Combine plots 
+#    fig_max_base_topo_emotions = cowplot::plot_grid(topo_hap_base_all, topo_ang_base_all, topo_leg, nrow = 1, rel_heights = c(1, 1,.2))
+#    fig_max_base_topo_emotions
+#    
+# # Save plots with transparent background     
+#   ggsave("./figures/max_base_topo_emotions.png", bg = "transparent", dpi = 300)    
     
 
 ```
@@ -358,80 +358,80 @@ ga_z_score_expr %>%
   
 #------------------------------------------------------------------------------------------------------------------------------------------------
   
-# Subset for base 
-  max_topo_expr = subset(max_topo, manip == "expr")
-
-# Add group
-  max_topo_expr$group = qn_data$group[match(max_topo_expr$ID,qn_data$ID,nomatch = NA)]
-    
-# Subset for emotions
-  max_topo_expr_hap = subset(max_topo_expr, emotion == "happy")
-  max_topo_expr_ang = subset(max_topo_expr, emotion == "angry")
-    
-# Add montage
-  max_topo_expr_hap = electrode_locations(max_topo_expr_hap, electrode = "electrode",  drop = FALSE,
-                                          montage = NULL)
-  
-  max_topo_expr_ang = electrode_locations(max_topo_expr_ang, electrode = "electrode",  drop = FALSE,
-                                          montage = NULL)
-  
-# Happy faces 
-  topo_hap_expr_all = ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("happy")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)")))+
-                    theme(legend.position = "none")
-  
-# Get legend happy faces
-    topo_leg_hap = get_legend(ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("angry")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
-    
-    
-# Combine plots 
-   fig_max_expr_topo_groups_hap = cowplot::plot_grid(topo_hap_expr_all, topo_leg_hap, nrow = 1, rel_heights = c(1, 1,.2))
-   fig_max_expr_topo_groups_hap 
-   
-# Save plots with transparent background     
-  ggsave("./figures/max_expr_topo_hap.png", bg = "transparent", dpi = 300)     
-    
-# Angry faces
-    topo_ang_expr_all = ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("angry")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)"))) +
-                    theme(legend.position = "none")
-  
-# Get legend angry faces
-    topo_leg_ang = get_legend(ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
-                    ggtitle("angry")+
-                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
-                              head_size = 1.5) + 
-                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
-                    theme_void() + 
-                    coord_equal() + 
-                    labs(fill = expression(paste("BCA (", mu,"V)"))))
-    
-    
-# Combine plots 
-   fig_max_expr_topo_emotions_ang = cowplot::plot_grid(topo_ang_expr_all, topo_leg_ang, nrow = 1, rel_heights = c(1, 1,.2))
-   fig_max_expr_topo_emotions_ang 
-   
-# Save plots with transparent background     
-  ggsave("./figures/max_expr_topo_ang.png", bg = "transparent", dpi = 300)    
+# # Subset for base 
+#   max_topo_expr = subset(max_topo, manip == "expr")
+# 
+# # Add group
+#   max_topo_expr$group = qn_data$group[match(max_topo_expr$ID,qn_data$ID,nomatch = NA)]
+#     
+# # Subset for emotions
+#   max_topo_expr_hap = subset(max_topo_expr, emotion == "happy")
+#   max_topo_expr_ang = subset(max_topo_expr, emotion == "angry")
+#     
+# # Add montage
+#   max_topo_expr_hap = electrode_locations(max_topo_expr_hap, electrode = "electrode",  drop = FALSE,
+#                                           montage = NULL)
+#   
+#   max_topo_expr_ang = electrode_locations(max_topo_expr_ang, electrode = "electrode",  drop = FALSE,
+#                                           montage = NULL)
+#   
+# # Happy faces 
+#   topo_hap_expr_all = ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("happy")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)")))+
+#                     theme(legend.position = "none")
+#   
+# # Get legend happy faces
+#     topo_leg_hap = get_legend(ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("angry")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)"))))  
+#     
+#     
+# # Combine plots 
+#    fig_max_expr_topo_groups_hap = cowplot::plot_grid(topo_hap_expr_all, topo_leg_hap, nrow = 1, rel_heights = c(1, 1,.2))
+#    fig_max_expr_topo_groups_hap 
+#    
+# # Save plots with transparent background     
+#   ggsave("./figures/max_expr_topo_hap.png", bg = "transparent", dpi = 300)     
+#     
+# # Angry faces
+#     topo_ang_expr_all = ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("angry")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)"))) +
+#                     theme(legend.position = "none")
+#   
+# # Get legend angry faces
+#     topo_leg_ang = get_legend(ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+#                     ggtitle("angry")+
+#                     geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+#                               head_size = 1.5) + 
+#                     scale_fill_distiller(palette = "RdBu" , limits = c(0,1.8)) + 
+#                     theme_void() + 
+#                     coord_equal() + 
+#                     labs(fill = expression(paste("BCA (", mu,"V)"))))
+#     
+#     
+# # Combine plots 
+#    fig_max_expr_topo_emotions_ang = cowplot::plot_grid(topo_ang_expr_all, topo_leg_ang, nrow = 1, rel_heights = c(1, 1,.2))
+#    fig_max_expr_topo_emotions_ang 
+#    
+# # Save plots with transparent background     
+#   ggsave("./figures/max_expr_topo_ang.png", bg = "transparent", dpi = 300)    
 
 ```
 
@@ -473,103 +473,103 @@ ga_z_score_expr %>%
   
 ```
 
-## BCA with PDI {.tabset .tabset-pills}
+<!-- ## BCA with PDI {.tabset .tabset-pills} -->
 
-### Base response 
+<!-- ### Base response  -->
 
-```{r BCA_base_resp_lmm_pdi, results = "asis"}
+<!-- ```{r BCA_base_resp_lmm_pdi, results = "asis"} -->
 
-# Convert ID, group & emotion into factor variables
-  max_base_lmm_pdi = max_base_stats_pdi %>%
-  convert_as_factor(ID)
+<!-- # Convert ID, group & emotion into factor variables -->
+<!--   max_base_lmm_pdi = max_base_stats_pdi %>% -->
+<!--   convert_as_factor(ID) -->
 
-  max_base_lmm_pdi$emotion = factor(max_base_lmm_pdi$emotion, levels=c("happy","angry"))
-  max_base_lmm_pdi$group = factor(max_base_lmm_pdi$group, levels=c("ZE","CT"))
- 
-# Define contrasts for emotion / group
-  contrasts(max_base_lmm_pdi$emotion) = contr.treatment(2)
-  contrasts(max_base_lmm_pdi$group) = contr.treatment(2)
+<!--   max_base_lmm_pdi$emotion = factor(max_base_lmm_pdi$emotion, levels=c("happy","angry")) -->
+<!--   max_base_lmm_pdi$group = factor(max_base_lmm_pdi$group, levels=c("ZE","CT")) -->
 
-# Define treatment contrast for ROI
-  contrasts(max_base_lmm_pdi$ROI) = contr.treatment(3, base = 2)
-  
-# Build full model with new names                
-  mod_base_lmer = lmer(bca ~ group*emotion*ROI + (1|ID),
-                        data = max_base_lmm_pdi, control=lmerControl(calc.derivs = FALSE))  
-  
-# Calculate and print ANOVA
-  mod_base_res = anova_stats(mod_base_lmer)
-  mod_base_res = subset(mod_base_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
-  mod_base_res = head(mod_base_res, - 1) 
-  knitr::kable(mod_base_res, format = 'markdown')  
+<!-- # Define contrasts for emotion / group -->
+<!--   contrasts(max_base_lmm_pdi$emotion) = contr.treatment(2) -->
+<!--   contrasts(max_base_lmm_pdi$group) = contr.treatment(2) -->
 
-  
-```
+<!-- # Define treatment contrast for ROI -->
+<!--   contrasts(max_base_lmm_pdi$ROI) = contr.treatment(3, base = 2) -->
 
-### Expression change response
+<!-- # Build full model with new names                 -->
+<!--   mod_base_lmer = lmer(bca ~ group*emotion*ROI + (1|ID), -->
+<!--                         data = max_base_lmm_pdi, control=lmerControl(calc.derivs = FALSE))   -->
 
-```{r BCA_expr_change_lmm_pdi, results = "asis"}
+<!-- # Calculate and print ANOVA -->
+<!--   mod_base_res = anova_stats(mod_base_lmer) -->
+<!--   mod_base_res = subset(mod_base_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power)) -->
+<!--   mod_base_res = head(mod_base_res, - 1)  -->
+<!--   knitr::kable(mod_base_res, format = 'markdown')   -->
 
-# Convert ID, group & emotion into factor variables
-  max_expr_lmm_pdi = max_expr_stats_pdi %>%
-  convert_as_factor(ID)
 
-  max_expr_lmm_pdi$emotion = factor(max_expr_lmm_pdi$emotion, levels=c("happy","angry"))
-  max_expr_lmm_pdi$group = factor(max_expr_lmm_pdi$group, levels=c("ZE","CT"))
-  max_expr_lmm_pdi$ROI = factor(max_expr_lmm_pdi$ROI,levels=c("lOT","rOT","MO"))
- 
-# Define contrasts for emotion / group
-  contrasts(max_expr_lmm_pdi$emotion) = contr.treatment(2)
-  contrasts(max_expr_lmm_pdi$group) = contr.treatment(2)
-  contrasts(max_expr_lmm_pdi$ROI) = contr.treatment(3, base = 3)
-  
-# Build full model with new names   
-  mod_expr_lmer = lmer(bca ~ group*emotion*ROI + (1|ID),
-                        data = max_expr_lmm_pdi, control=lmerControl(calc.derivs = FALSE))  
-  
-# Calculate and print ANOVA
-  mod_expr_res = anova_stats(mod_expr_lmer)
-  mod_expr_res = subset(mod_expr_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
-  mod_expr_res = head(mod_expr_res, - 1) 
-  knitr::kable(mod_expr_res, format = 'markdown')  
-  
-  
-  m.roi = emmeans(mod_expr_lmer, "ROI")
+<!-- ``` -->
 
-  main_roi = contrast(m.roi, 'tukey') %>%
-  broom::tidy() %>%
-  head(6)
-  
-  knitr::kable(main_roi, format = 'markdown')
-  
-  m.emo = emmeans(mod_expr_lmer, "emotion")
+<!-- ### Expression change response -->
 
-  main_emo = contrast(m.emo, 'tukey') %>%
-  broom::tidy() %>%
-  head(6)
-  
-  knitr::kable(main_emo, format = 'markdown')
-  
-  
- # Examine interaction
-  max_gr_ROI_expr_ch_pdi = emmip(mod_expr_lmer, group ~ ROI ,CIs =TRUE)+
-  scale_color_manual(values=c("#D97909","#333333"))+
-  theme_prism()+
-  labs(x = "Expression intensity")+
-  scale_size_manual(values=c(1,3))
-  
-  max_gr_ROI_expr_ch_pdi
-  
-  # Save without white background
-  ggsave("./figures/max_gr_ROI_expr_ch_pdi.png", bg = "transparent", dpi = 300) 
-  
-# Calculate and print post-hoc tests
-  emm_s.t = emmeans(mod_expr_lmer, pairwise ~ group  | ROI)
-  knitr::kable(emm_s.t$contrasts, format = 'markdown')
-  
+<!-- ```{r BCA_expr_change_lmm_pdi, results = "asis"} -->
 
-  
-```
+<!-- # Convert ID, group & emotion into factor variables -->
+<!--   max_expr_lmm_pdi = max_expr_stats_pdi %>% -->
+<!--   convert_as_factor(ID) -->
+
+<!--   max_expr_lmm_pdi$emotion = factor(max_expr_lmm_pdi$emotion, levels=c("happy","angry")) -->
+<!--   max_expr_lmm_pdi$group = factor(max_expr_lmm_pdi$group, levels=c("ZE","CT")) -->
+<!--   max_expr_lmm_pdi$ROI = factor(max_expr_lmm_pdi$ROI,levels=c("lOT","rOT","MO")) -->
+
+<!-- # Define contrasts for emotion / group -->
+<!--   contrasts(max_expr_lmm_pdi$emotion) = contr.treatment(2) -->
+<!--   contrasts(max_expr_lmm_pdi$group) = contr.treatment(2) -->
+<!--   contrasts(max_expr_lmm_pdi$ROI) = contr.treatment(3, base = 3) -->
+
+<!-- # Build full model with new names    -->
+<!--   mod_expr_lmer = lmer(bca ~ group*emotion*ROI + (1|ID), -->
+<!--                         data = max_expr_lmm_pdi, control=lmerControl(calc.derivs = FALSE))   -->
+
+<!-- # Calculate and print ANOVA -->
+<!--   mod_expr_res = anova_stats(mod_expr_lmer) -->
+<!--   mod_expr_res = subset(mod_expr_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power)) -->
+<!--   mod_expr_res = head(mod_expr_res, - 1)  -->
+<!--   knitr::kable(mod_expr_res, format = 'markdown')   -->
+
+
+<!--   m.roi = emmeans(mod_expr_lmer, "ROI") -->
+
+<!--   main_roi = contrast(m.roi, 'tukey') %>% -->
+<!--   broom::tidy() %>% -->
+<!--   head(6) -->
+
+<!--   knitr::kable(main_roi, format = 'markdown') -->
+
+<!--   m.emo = emmeans(mod_expr_lmer, "emotion") -->
+
+<!--   main_emo = contrast(m.emo, 'tukey') %>% -->
+<!--   broom::tidy() %>% -->
+<!--   head(6) -->
+
+<!--   knitr::kable(main_emo, format = 'markdown') -->
+
+
+<!--  # Examine interaction -->
+<!--   max_gr_ROI_expr_ch_pdi = emmip(mod_expr_lmer, group ~ ROI ,CIs =TRUE)+ -->
+<!--   scale_color_manual(values=c("#D97909","#333333"))+ -->
+<!--   theme_prism()+ -->
+<!--   labs(x = "Expression intensity")+ -->
+<!--   scale_size_manual(values=c(1,3)) -->
+
+<!--   max_gr_ROI_expr_ch_pdi -->
+
+<!--   # Save without white background -->
+<!--   ggsave("./figures/max_gr_ROI_expr_ch_pdi.png", bg = "transparent", dpi = 300)  -->
+
+<!-- # Calculate and print post-hoc tests -->
+<!--   emm_s.t = emmeans(mod_expr_lmer, pairwise ~ group  | ROI) -->
+<!--   knitr::kable(emm_s.t$contrasts, format = 'markdown') -->
+
+
+
+<!-- ``` -->
 
 
 
