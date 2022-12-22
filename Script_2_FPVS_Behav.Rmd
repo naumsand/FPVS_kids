@@ -1,0 +1,486 @@
+---
+title: "FPVS-Behavior"
+output: 
+  rmdformats::material:
+    highlight: kate
+    css: web_style.css
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    cards: true
+    self_contained: no
+    number_sections: no
+    code_folding: hide
+    fig_caption: yes
+---
+
+```{r setup, include = FALSE, message = FALSE}
+
+# Set general settings for Markdown file 
+  options(max.print="75")
+
+  knitr::opts_chunk$set(echo=TRUE,
+  	             #cache=TRUE,
+                 prompt=FALSE,
+                 tidy=TRUE,
+                 comment=NA,
+                 message=FALSE,
+                 warning=FALSE,
+                 results = FALSE,
+  	             fig.align="center")
+  knitr::opts_knit$set(width=75)
+  
+# Load packages
+  library(afex)
+  library(car)
+  library(corrplot)
+  library(dplyr)
+  library(eeptools)
+  library(emmeans)
+  library(ggplot2)
+  library(ggprism)
+  library(kableExtra)
+  library(lme4)
+  library(lmerTest)
+  library(miceadds)
+  library(pander)
+  library(psycho)
+  library(sjPlot) 
+  library(sjstats)
+  library(XLConnect)
+  
+# Swipe environment
+ rm(list=ls())  
+ 
+# Define colors
+ FPVS_col = c('gray53',"#0098ff")
+  
+```
+
+```{r load_data, include = FALSE, message = FALSE}
+
+# Load qn_data
+  load.Rdata(filename="./data/qn_data.Rdata", "qn_data")
+
+# Load ERT data
+  load.Rdata(filename="./data/ERT_data.Rdata", "ERT_data")
+  load.Rdata(filename="./data/ERT_means.Rdata", "ERT_means")
+  
+# Load max / grad bca data
+  load.Rdata(filename="./data/max_expr_stats.Rdata", "max_expr")  
+  load.Rdata(filename="./data/grad_expr_plot.Rdata", "grad_expr")  
+  
+# Mean amplitudes max-face
+  load.Rdata(filename="./data/P1_av.Rdata", "P1_av")
+  load.Rdata(filename="./data/N170_av.Rdata", "N170_av")
+  load.Rdata(filename="./data/P3_av.Rdata", "P3_av")
+    
+# Mean amplitudes grad-face
+  load.Rdata(filename="./data/grad_P1.Rdata", "grad_P1")
+  load.Rdata(filename="./data/grad_N170.Rdata", "grad_N170")
+  load.Rdata(filename="./data/grad_P3.Rdata", "grad_P3")
+
+```
+
+# ERT analysis {.tabset .tabset-pills}
+
+## Accuracy
+
+```{r vis_Acc_emo, results = "asis", fig.width = 4, fig.height = 2}
+
+ERT_means_emo = subset (ERT_means, intens != "neu")
+
+# Separate for angry vs. happy faces
+  acc_plot = ggplot(ERT_means_emo, aes(x = intens, y = perc_hit, fill = emo)) +
+  stat_boxplot(geom ='errorbar', width=0.4, size=0.6, coef=1, position=position_dodge(0.65)) +
+  geom_boxplot(coef=1, outlier.shape = NA, width=0.6, lwd=1, alpha=1, position=position_dodge(0.65)) +
+  labs(x = "Emotion intensity [%]", y = "Accuracy") +
+  scale_fill_manual(values = FPVS_col) +
+  theme_prism(base_size = 10)+
+  theme(panel.background = element_rect(fill = "transparent"),
+  plot.background = element_rect(fill = "transparent", color = NA),
+  legend.background = element_rect(fill = "transparent"),
+  legend.box.background = element_rect(fill = "transparent"),
+  legend.position ="none")
+  
+  acc_plot  
+  
+  ggsave("./figures/acc_plot_emo.png", bg = "transparent", dpi = 300)
+  
+```
+
+```{r Acc_LMM_group_intens_emo, results = "asis"}
+
+# Exclude neutral condition for now 
+  ERT_LMM = subset(ERT_data, intens != "neu")
+  ERT_LMM$intens = factor(ERT_LMM$intens, levels = c("20%", "40%", "60%", "80%", "100%"))
+
+# Factor variables
+  ERT_LMM$emo = factor(ERT_LMM$emo)
+  ERT_LMM$ID = factor(ERT_LMM$ID)
+  ERT_LMM$stim = factor(ERT_LMM$stim)
+
+# Create contrasts 
+  contrasts(ERT_LMM$emo) = contr.treatment(2,  base = 1)
+  contrasts(ERT_LMM$group) = contr.treatment(2,  base = 1)
+  contrasts(ERT_LMM$intens) = contr.treatment(5)
+
+# Model for accuracy
+  mod_ERT_Acc = glmer(response ~ group*emo*intens +   
+                            (1|ID) +
+                            (1|stim), 
+                            data = ERT_LMM, control=glmerControl(calc.derivs = FALSE),
+                            family = binomial)
+  
+  
+  
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = car::Anova(mod_ERT_Acc, test = "Chisq", type = "III")
+  #mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  #mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')
+  
+  m.intens = emmeans(mod_ERT_Acc, "intens", type = "response")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = "markdown") 
+  
+  m.intens = emmeans(mod_ERT_Acc, "intens",type = "response")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')
+  
+  m.emo = emmeans(mod_ERT_Acc, "emo", type = "response")
+ 
+  emo = contrast(m.emo, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(emo, format = 'markdown')  
+  
+```
+
+## Reaction time
+
+```{r vis_RT_emo, results = "asis", fig.width = 4, fig.height = 2}
+
+ERT_means_emo = subset (ERT_means, intens != "neu")
+
+# Reaction times
+  RT_plot = ggplot(ERT_means_emo, aes(x = intens, y = RT, fill = emo)) +
+  stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+  geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+  labs(x = "Emotion intensity [%]", y = "RT [ms]") +
+   theme_prism(base_size = 10)+
+  theme(panel.background = element_rect(fill = "transparent"),
+  plot.background = element_rect(fill = "transparent", color = NA),
+  legend.background = element_rect(fill = "transparent"),
+  legend.box.background = element_rect(fill = "transparent"), legend.position ="none")+
+  scale_fill_manual(values = FPVS_col)
+  
+  RT_plot  
+  
+  ggsave("./figures/RT_plot_emo.png", bg = "transparent", dpi = 300)  
+  
+  
+```
+
+```{r RT_LMM_group_intens_emo, results = "asis"}
+
+# Exclude neutral condition for now 
+  ERT_LMM = subset(ERT_data, intens != "neu")
+  ERT_LMM$intens = factor(ERT_LMM$intens, levels = c("20%", "40%", "60%", "80%", "100%"))
+
+# Factor variables
+  ERT_LMM$emo = factor(ERT_LMM$emo)
+  ERT_LMM$ID = factor(ERT_LMM$ID)
+  ERT_LMM$stim = factor(ERT_LMM$stim)
+
+# Create contrasts 
+  contrasts(ERT_LMM$emo) = contr.treatment(2,  base = 1)
+  contrasts(ERT_LMM$group) = contr.treatment(2,  base = 1)
+  contrasts(ERT_LMM$intens) = contr.treatment(5)
+
+# Build full model 
+  mod_ERT_RT = lmer(RT ~ emo*intens*group +
+                                   (1|ID) +
+                                   (1|stim),
+                                   data = ERT_LMM,
+                                   control=lmerControl(calc.derivs = FALSE))  
+
+  
+  # Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_ERT_RT)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')
+  
+# Intensity trajectory 
+  m.intens = emmeans(mod_ERT_RT, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens) 
+  
+# Intensity: differences between intensities 
+  m.intens = emmeans(mod_ERT_RT, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')
+  
+# Emotion main effect
+  m.emo = emmeans(mod_ERT_RT, "emo")
+
+  emo = contrast(m.emo, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(emo, format = 'markdown')
+  
+# Emotion x Intensity effect
+  emm_s.t = emmeans(mod_ERT_RT, pairwise ~ emo | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')
+  
+```
+
+
+<!-- # Correlation exploration -->
+
+```{r fpvs_corr, results = "asis", eval = FALSE, include = FALSE}
+
+# Average across emotion / intensities / ROI for time & frequency domain
+  fpvs_corr =
+      ERT_means %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_RT = mean(RT, na.rm = TRUE), mean_acc = mean(perc_hit, na.rm = TRUE))
+
+  # means_grad =
+  #     grad_expr %>%
+  #     group_by(ID, intens) %>%
+  #     dplyr::summarise(mean_bca_grad = mean(bca, na.rm = TRUE))
+  # 
+  # means_grad_20 = subset(means_grad, intens == "20%")
+  # means_grad_40 = subset(means_grad, intens == "40%")
+  # means_grad_60 = subset(means_grad, intens == "60%")
+  # means_grad_80 = subset(means_grad, intens == "80%")
+  # means_grad_100 = subset(means_grad, intens == "100%")
+  
+  means_grad =
+      grad_expr %>%
+      group_by(ID, intens, emotion) %>%
+      dplyr::summarise(mean_bca_grad = mean(bca, na.rm = TRUE))
+  
+  # means_grad_20 = subset(means_grad, intens == "20%" & emotion == "happy")
+  # means_grad_40 = subset(means_grad, intens == "40%" & emotion == "happy")
+  # means_grad_60 = subset(means_grad, intens == "60%" & emotion == "happy")
+  # means_grad_80 = subset(means_grad, intens == "80%" & emotion == "happy")
+  # means_grad_100 = subset(means_grad, intens == "100%" & emotion == "happy")  
+  
+  means_grad_20 = subset(means_grad, intens == "20%" & emotion == "angry")
+  means_grad_40 = subset(means_grad, intens == "40%" & emotion == "angry")
+  means_grad_60 = subset(means_grad, intens == "60%" & emotion == "angry")
+  means_grad_80 = subset(means_grad, intens == "80%" & emotion == "angry")
+  means_grad_100 = subset(means_grad, intens == "100%" & emotion == "angry")
+  
+  means_grad =
+      grad_expr %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_bca_grad = mean(bca, na.rm = TRUE))  
+   
+  means_max =
+      max_expr %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_bca_max = mean(bca, na.rm = TRUE))
+  
+  max_P1_av =
+      P1_av %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_P1_amp_max = mean(amp, na.rm = TRUE))
+  
+  max_N170_av =
+      N170_av %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_N170_amp_max = mean(amp, na.rm = TRUE))  
+  
+  max_P3_av =
+      P3_av %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_P3_amp_max = mean(amp, na.rm = TRUE))  
+  
+# Exclude MO for grad ERPs (no visible signal)
+  
+  grad_P1 = subset(grad_P1, ROI == "rOT" | ROI == "lOT")
+  grad_N170 = subset(grad_N170, ROI == "rOT" | ROI == "lOT")
+  grad_P3 = subset(grad_P3, ROI == "rOT" | ROI == "lOT")
+  
+  
+  grad_P1_av =
+      grad_P1 %>%
+      group_by(ID, intens) %>%
+      dplyr::summarise(mean_P1_amp_grad = mean(amp, na.rm = TRUE))
+  
+  grad_P1_av_20 = subset(grad_P1_av, intens == "20%")
+  grad_P1_av_40 = subset(grad_P1_av, intens == "40%")
+  grad_P1_av_60 = subset(grad_P1_av, intens == "60%")
+  grad_P1_av_80 = subset(grad_P1_av, intens == "80%")
+  grad_P1_av_100 = subset(grad_P1_av, intens == "100%")
+  
+  grad_P1_av =
+      grad_P1 %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_P1_amp_grad = mean(amp, na.rm = TRUE))
+  
+  grad_N170_av =
+      grad_N170 %>%
+      group_by(ID, intens) %>%
+      dplyr::summarise(mean_N170_amp_grad = mean(amp, na.rm = TRUE))
+  
+  grad_N170_av_20 = subset(grad_N170_av, intens == "20%")
+  grad_N170_av_40 = subset(grad_N170_av, intens == "40%")
+  grad_N170_av_60 = subset(grad_N170_av, intens == "60%")
+  grad_N170_av_80 = subset(grad_N170_av, intens == "80%")
+  grad_N170_av_100 = subset(grad_N170_av, intens == "100%")
+  
+  grad_N170_av =
+      grad_N170 %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_N170_amp_grad = mean(amp, na.rm = TRUE))
+  
+  grad_P3_av =
+      grad_P3 %>%
+      group_by(ID, intens) %>%
+      dplyr::summarise(mean_P3_amp_grad = mean(amp, na.rm = TRUE))
+  
+  grad_P3_av_20 = subset(grad_P3_av, intens == "20%")
+  grad_P3_av_40 = subset(grad_P3_av, intens == "40%")
+  grad_P3_av_60 = subset(grad_P3_av, intens == "60%")
+  grad_P3_av_80 = subset(grad_P3_av, intens == "80%")
+  grad_P3_av_100 = subset(grad_P3_av, intens == "100%")
+  
+  grad_P3_av =
+      grad_P3 %>%
+      group_by(ID) %>%
+      dplyr::summarise(mean_P3_amp_grad = mean(amp, na.rm = TRUE)) 
+  
+# Merge data frames with ID 
+  
+  # Adapt ID structure in qn_data
+  qn_data$ID = c(paste0("0", 1:9), 10:76)
+  
+  fpvs_corr$GEM_T2 = qn_data$GEM_Total_T2[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr$EMK_EM_P_T2 = qn_data$EMK_EM_P_T2[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr$EMK_EM_CH_T2 = qn_data$EMK_EM_CH_T2[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr$EMK_EK_P_T2 = qn_data$EMK_EK_P_T2[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr$EMK_EK_CH_T2 = qn_data$EMK_EK_CH_T2[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr$bca_grad = means_grad$mean_bca_grad[match(fpvs_corr$ID,means_grad$ID,nomatch = NA)]
+  fpvs_corr$bca_grad_20 = means_grad_20$mean_bca_grad[match(fpvs_corr$ID,means_grad_20$ID,nomatch = NA)]
+  fpvs_corr$bca_grad_40 = means_grad_40$mean_bca_grad[match(fpvs_corr$ID,means_grad_40$ID,nomatch = NA)]
+  fpvs_corr$bca_grad_60 = means_grad_60$mean_bca_grad[match(fpvs_corr$ID,means_grad_60$ID,nomatch = NA)]
+  fpvs_corr$bca_grad_80 = means_grad_80$mean_bca_grad[match(fpvs_corr$ID,means_grad_80$ID,nomatch = NA)]
+  fpvs_corr$bca_grad_100 = means_grad_100$mean_bca_grad[match(fpvs_corr$ID,means_grad_100$ID,nomatch = NA)]
+  
+  #fpvs_corr$bca_max =  means_max$mean_bca_max[match(fpvs_corr$ID,means_max$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_max =  max_P1_av$mean_P1_amp_max[match(fpvs_corr$ID,max_P1_av$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_max =  max_N170_av$mean_N170_amp_max[match(fpvs_corr$ID,max_N170_av$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_max =  max_P3_av$mean_P3_amp_max[match(fpvs_corr$ID,max_P3_av$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_grad =  grad_P1_av$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_grad =  grad_N170_av$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_grad =  grad_P3_av$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av$ID,nomatch = NA)]
+  
+  # fpvs_corr$P1_amp_grad_20 = grad_P1_av_20$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av_20$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_grad_40 = grad_P1_av_40$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av_40$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_grad_60 = grad_P1_av_60$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av_60$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_grad_80 = grad_P1_av_80$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av_80$ID,nomatch = NA)]
+  # fpvs_corr$P1_amp_grad_100 = grad_P1_av_100$mean_P1_amp_grad[match(fpvs_corr$ID,grad_P1_av_100$ID,nomatch = NA)]
+
+  # fpvs_corr$N170_amp_grad_20 = grad_N170_av_20$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av_20$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_grad_40 = grad_N170_av_40$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av_40$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_grad_60 = grad_N170_av_60$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av_60$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_grad_80 = grad_N170_av_80$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av_80$ID,nomatch = NA)]
+  # fpvs_corr$N170_amp_grad_100 = grad_N170_av_100$mean_N170_amp_grad[match(fpvs_corr$ID,grad_N170_av_100$ID,nomatch = NA)]
+  
+  # fpvs_corr$P3_amp_grad_20 = grad_P3_av_20$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av_20$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_grad_40 = grad_P3_av_40$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av_40$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_grad_60 = grad_P3_av_60$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av_60$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_grad_80 = grad_P3_av_80$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av_80$ID,nomatch = NA)]
+  # fpvs_corr$P3_amp_grad_100 = grad_P3_av_100$mean_P3_amp_grad[match(fpvs_corr$ID,grad_P3_av_100$ID,nomatch = NA)]
+  
+  # Select grad-face only data
+  fpvs_corr$EEG_Grad = qn_data$EEG_Grad[match(fpvs_corr$ID,qn_data$ID,nomatch = NA)]
+  fpvs_corr = subset(fpvs_corr, EEG_Grad == 1)  
+  
+# De-select participants
+ #fpvs_corr = subset(fpvs_corr, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  
+# Remove ID from data frame
+  fpvs_corr = subset(fpvs_corr, select = -c(ID, EEG_Grad))
+
+# Plot corrplot
+  corr_calc_fpvs = cor(fpvs_corr, use="complete.obs")
+  corrplot(corr_calc_fpvs, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black')  
+  
+# Compute single correlation tests 
+  cor.test(fpvs_corr$mean_acc, fpvs_corr$GEM_T2)
+  cor.test(fpvs_corr$mean_acc, fpvs_corr$EMK_EM_P_T2)
+  cor.test(fpvs_corr$mean_acc, fpvs_corr$EMK_EM_CH_T2)
+  cor.test(fpvs_corr$mean_acc, fpvs_corr$EMK_EK_CH_T2)
+  cor.test(fpvs_corr$mean_acc, fpvs_corr$EMK_EK_P_T2)  
+  
+  cor.test(fpvs_corr$mean_RT, fpvs_corr$GEM_T2)
+  cor.test(fpvs_corr$mean_RT, fpvs_corr$EMK_EM_P_T2)
+  cor.test(fpvs_corr$mean_RT, fpvs_corr$EMK_EM_CH_T2)
+  cor.test(fpvs_corr$mean_RT, fpvs_corr$EMK_EK_CH_T2)
+  cor.test(fpvs_corr$mean_RT, fpvs_corr$EMK_EK_P_T2)  
+  
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$GEM_T2)
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$EMK_EM_P_T2)
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$EMK_EM_CH_T2)
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$EMK_EK_CH_T2)
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$EMK_EK_P_T2)  
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$mean_RT)
+  cor.test(fpvs_corr$bca_grad, fpvs_corr$mean_acc)
+  
+  cor.test(fpvs_corr$bca_max, fpvs_corr$GEM_T2)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$EMK_EM_P_T2)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$EMK_EM_CH_T2)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$EMK_EK_CH_T2)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$EMK_EK_P_T2)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$mean_RT)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$mean_acc)
+  cor.test(fpvs_corr$bca_max, fpvs_corr$bca_grad)
+  
+  cor.test(fpvs_corr$P1_amp_max, fpvs_corr$EMK_EM_P_T2)
+  cor.test(fpvs_corr$P1_amp_max, fpvs_corr$EMK_EK_P_T2)
+
+  cor.test(fpvs_corr$N170_amp_grad, fpvs_corr$EMK_EK_P_T2)
+  
+# EMK_EM_CH & bca_grad
+  ggplot(fpvs_corr, aes(y=bca_grad, x=EMK_EM_CH_T2)) + 
+  geom_point()+
+  geom_smooth(method=lm, se=FALSE)
+
+```
+
+# Session info
+
+<!-- Provide session info  -->
+
+```{r session_info, results = TRUE}
+
+# Get session info 
+  sessionInfo()
+
+```
+

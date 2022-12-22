@@ -1,0 +1,2352 @@
+---
+title: "xx_archived_analysis"
+output: 
+  rmdformats::material:
+    highlight: kate
+    css: web_style.css
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    cards: true
+    self_contained: no
+    number_sections: no
+    code_folding: hide
+    fig_caption: yes
+---
+
+## Script_2_FPVS_Behav
+
+### Visualization
+
+```{r first_vis_Acc_group, results = "asis", fig.width = 8, fig.height = 5, eval = FALSE, include = FALSE}
+
+ERT_means_emo = subset (ERT_means, intens != "neu")
+
+# Separate for angry vs. happy faces
+  acc_plot = ggplot(ERT_means_emo, aes(x = intens, y = perc_hit, fill = group)) +
+  stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+  geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+  labs(x = "Intensity [%]", y = "Accuracy") +
+  scale_fill_manual(values = FPVS_col) +
+  theme_prism(base_size = 12)+
+  theme(panel.background = element_rect(fill = "transparent"),
+  plot.background = element_rect(fill = "transparent", color = NA),
+  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+  legend.box.background = element_rect(fill = "transparent"))+
+  facet_wrap(~emo)
+  
+acc_plot  
+  
+```
+
+```{r acc_ANOVA_group_intens_emo, results = "asis", eval = FALSE, include = FALSE}
+
+# Exclude neutral condition for now 
+  ERT_means_emo = subset(ERT_means, intens != "neu")
+
+  ERT_anov =  aov_ez("ID", "perc_hit", ERT_means_emo , between = c("group"), within = c("intens", "emo"),
+    #covariate = c("age", "sex"),
+    #observed = c("age", "sex"), factorize = FALSE,
+    anova_table = list(correction = "none", es = "pes"))
+  
+  pander(ERT_anov$anova_table)
+  
+# Do post-hoc tests
+  ERT_acc = emmeans(ERT_anov, pairwise ~ emo| intens)
+  knitr::kable(ERT_acc$contrasts) 
+```
+
+```{r first_vis_RT_group, results = "asis", fig.width = 8, fig.height = 5, eval = FALSE, include = FALSE}
+
+ERT_means_emo = subset (ERT_means, intens != "neu")
+
+# Reaction times
+  RT_plot = ggplot(ERT_means_emo, aes(x = intens, y = RT, fill = group)) +
+  stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+  geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+  labs(x = "Emotion intensity", y = "RT [ms]") +
+   theme_prism(base_size = 12)+
+  theme(panel.background = element_rect(fill = "transparent"),
+  plot.background = element_rect(fill = "transparent", color = NA),
+  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+  legend.box.background = element_rect(fill = "transparent"))+
+  scale_fill_manual(values = FPVS_col) +
+  facet_wrap(~emo)
+  
+RT_plot  
+  
+ggsave("./figures/RT_plot.png", bg = "transparent", dpi = 300)  
+  
+  
+```
+
+
+```{r RT_ANOVA_group_intens_emo, results = "asis", eval = FALSE, include = FALSE}
+
+# Exclude neutral condition for now 
+  ERT_means_emo = subset(ERT_means, intens != "neu")
+
+  ERT_anov =  aov_ez("ID", "RT", ERT_means_emo , between = c("group"), within = c("intens", "emo"),
+    #covariate = c("age", "sex"),
+    #observed = c("age", "sex"), factorize = FALSE,
+    anova_table = list(correction = "none", es = "pes"))
+  
+  pander(ERT_anov$anova_table)
+  
+# Do post-hoc tests
+  ERT_RT_ph_1 = emmeans(ERT_anov, pairwise ~ emo| intens)
+  knitr::kable(ERT_RT_ph_1$contrasts) 
+
+
+  
+```
+
+<!-- ## Participants - Acc -->
+
+```{r indiv_acc, results = "asis", fig.width = 8, fig.height = 30, eval = FALSE, include = FALSE}
+
+# Separate for angry vs. happy faces
+
+  ERT_ang = subset(ERT_means, emo == "happy")
+
+  ERT_ang_plot_indiv_acc = 
+    ggplot(ERT_ang, aes(x = intens, y = perc_hit)) +
+    stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+    geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+    labs(x = "Emotion intensity", y = "Accuracy") +
+    theme_bw()+
+    facet_wrap(~ ID, ncol = 5)
+  
+  ERT_ang_plot_indiv_acc
+    
+  ERT_hap = subset(ERT_means, emo == "angry")
+
+  ERT_hap_plot_indiv_acc = 
+    ggplot(ERT_hap, aes(x = intens, y = perc_hit)) +
+    stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+    geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+    labs(x = "Emotion intensity", y = "Accuracy") +
+    theme_bw() +
+    facet_wrap(~ ID, ncol = 5)
+  
+  ERT_hap_plot_indiv_acc
+
+```
+
+<!--## Participants - RT -->
+
+```{r indiv_RT, results = "asis", fig.width = 8, fig.height = 30, eval = FALSE, include = FALSE}
+
+# Separate for angry vs. happy faces
+
+  ERT_ang = subset(ERT_data, emo == "happy")
+
+  ERT_ang_plot_indiv_RT = 
+    ggplot(ERT_ang, aes(x = intens, y = RT)) +
+    stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+    geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+    labs(x = "Emotion intensity", y = "RT") +
+    theme_bw()+
+    facet_wrap(~ ID, ncol = 5)
+  
+  ERT_ang_plot_indiv_RT
+    
+  ERT_hap = subset(ERT_data, emo == "angry")
+
+  ERT_hap_plot_indiv_RT = 
+    ggplot(ERT_hap, aes(x = intens, y = RT)) +
+    stat_boxplot(geom ='errorbar', width=0.5, size=0.7, coef=1, position=position_dodge(0.65)) +
+    geom_boxplot(coef=1, outlier.shape = NA, width=0.7, lwd=1, alpha=1, position=position_dodge(0.65)) +
+    labs(x = "Emotion intensity", y = "RT") +
+    theme_bw() +
+    facet_wrap(~ ID, ncol = 5)
+  
+  ERT_hap_plot_indiv_RT
+
+```
+
+
+### Stats
+
+<!--## ## ANOVAs -->
+
+```{r SD_ANOVA_group_intens_emo, eval = FALSE, include = FALSE}
+
+library(afex)
+library(emmeans)
+library(pander)
+
+# Exclude neutral condition for now 
+  ERT_means_emo = subset(ERT_means, intens != "neu")
+
+  ERT_anov =  aov_ez("ID", "RT", ERT_means_emo , between = c("group"), within = c("intens", "emo"),
+    #covariate = c("age", "sex"),
+    #observed = c("age", "sex"), factorize = FALSE,
+    anova_table = list(correction = "none", es = "pes"))
+  
+  pander(ERT_anov$anova_table)
+  
+# Do post-hoc test 
+  ERT_ph = emmeans(ERT_anov, ~ "intens", by = "emo")
+  ERT_ph_res = print(pairs(ERT_ph))
+ 
+```
+
+### Correlation
+
+```{r separated_by_emotion, eval = FALSE, include = FALSE}
+
+# We can do two types of correlation: 1) Separated by intensity with accuracy and RTs; 2) accuracy / RTs with SEC measures
+
+# Combine max data with behavioral data
+  load.Rdata(filename="./data/max_expr_stats.Rdata", "max_expr")  
+  max_expr_rOT = subset(max_expr, ROI == "rOT")
+
+# Combine grad data with behavioral data
+  load.Rdata(filename="./data/grad_expr_plot.Rdata", "grad_expr")  
+  grad_expr_rOT = subset(grad_expr, ROI == "rOT")
+  
+  
+# Rename variable
+ #ERT_means =  rename(ERT_means, c("emotion"="emo"))
+  
+# Bring information together  
+  grad_corr = merge(ERT_means, grad_expr_rOT, by = c('ID','emotion', 'intens', 'group'))
+  
+
+  means =
+      ERT_means %>%
+      group_by(ID, emotion) %>%
+      summarise(mean_RT = mean(RT, na.rm = TRUE),
+            mean_acc = mean(perc_hit, na.rm = TRUE))
+  
+   means_grad =
+      grad_expr_rOT %>%
+      group_by(ID,emotion) %>%
+      summarise(mean_bca_grad = mean(bca, na.rm = TRUE))
+   
+    means_max =
+      max_expr_rOT %>%
+      group_by(ID,emotion) %>%
+      summarise(mean_bca_max = mean(bca, na.rm = TRUE))
+  
+  
+  means$GEM_T2 = qn_data$GEM_Total_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EM_P_T2 = qn_data$EMK_EM_P_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EM_CH_T2 = qn_data$EMK_EM_CH_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EK_P_T2 = qn_data$EMK_EK_P_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EK_CH_T2 = qn_data$EMK_EK_CH_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$bca_grad = means_grad$mean_bca_grad[match(means$ID,means_grad$ID,nomatch = NA)]
+  means$bca_max =  means_max$mean_bca_max[match(means$ID,means_max$ID,nomatch = NA)]
+  
+  means = subset(means, select = -c(ID))
+  
+# Happy  
+
+  means_hap = subset(means, emotion == "happy")
+  means_hap = subset(means_hap, select = -c(emotion))
+  
+  
+  corr_RT_acc_hap = cor(means_hap, use="complete.obs")
+  corr_hap = corrplot(corr_RT_acc_hap, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black') 
+  
+  corr_hap
+  
+  ggsave("./figures/corr_hap.png", bg = "transparent", dpi = 300)
+  
+# Angry  
+  
+  means_ang = subset(means, emotion == "angry")
+  means_ang = subset(means_ang, select = -c(emotion))
+  
+  corr_RT_acc_ang = cor(means_ang, use="complete.obs")
+  corrplot(corr_RT_acc_ang, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black')  
+  
+  
+  cor.test(means$mean_acc, means$GEM_T2)
+  cor.test(means$mean_acc, means$EMK_EM_P_T2)
+  cor.test(means$mean_acc, means$EMK_EM_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_P_T2)  
+  
+  cor.test(means$mean_RT, means$GEM_T2)
+  cor.test(means$mean_RT, means$EMK_EM_P_T2)
+  cor.test(means$mean_RT, means$EMK_EM_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_P_T2)  
+  
+  
+  cor.test(means$bca_grad, means$GEM_T2)
+  cor.test(means$bca_grad, means$EMK_EM_P_T2)
+  cor.test(means$bca_grad, means$EMK_EM_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_P_T2)  
+  cor.test(means$bca_grad, means$mean_RT)
+  cor.test(means$bca_grad, means$mean_acc)
+  
+  cor.test(means$bca_max, means$GEM_T2)
+  cor.test(means$bca_max, means$EMK_EM_P_T2)
+  cor.test(means$bca_max, means$EMK_EM_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_P_T2)
+  cor.test(means$bca_max, means$mean_RT)
+  cor.test(means$bca_max, means$mean_acc)
+  
+
+```
+
+```{r separated_by_group, eval = FALSE, include = FALSE}
+
+# We can do two types of correlation: 1) Separated by intensity with accuracy and RTs; 2) accuracy / RTs with SEC measures
+
+# Combine max data with behavioral data
+  load.Rdata(filename="./data/max_expr_stats.Rdata", "max_expr")  
+  max_expr_rOT = subset(max_expr, ROI == "rOT")
+
+# Combine grad data with behavioral data
+  load.Rdata(filename="./data/grad_expr_plot.Rdata", "grad_expr")  
+  grad_expr_rOT = subset(grad_expr, ROI == "rOT")
+  
+  
+# Rename variable
+ #ERT_means =  rename(ERT_means, c("emotion"="emo"))
+  
+# Bring information together  
+  grad_corr = merge(ERT_means, grad_expr_rOT, by = c('ID','emotion', 'intens', 'group'))
+  
+
+  means =
+      ERT_means %>%
+      group_by(ID, group) %>%
+      summarise(mean_RT = mean(RT, na.rm = TRUE),
+            mean_acc = mean(perc_hit, na.rm = TRUE))
+  
+   means_grad =
+      grad_expr_rOT %>%
+      group_by(ID,group) %>%
+      summarise(mean_bca_grad = mean(bca, na.rm = TRUE))
+   
+    means_max =
+      max_expr_rOT %>%
+      group_by(ID,group) %>%
+      summarise(mean_bca_max = mean(bca, na.rm = TRUE))
+  
+  
+  means$GEM_T2 = qn_data$GEM_Total_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EM_P_T2 = qn_data$EMK_EM_P_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EM_CH_T2 = qn_data$EMK_EM_CH_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EK_P_T2 = qn_data$EMK_EK_P_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$EMK_EK_CH_T2 = qn_data$EMK_EK_CH_T2[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$bca_grad = means_grad$mean_bca_grad[match(means$ID,means_grad$ID,nomatch = NA)]
+  means$bca_max =  means_max$mean_bca_max[match(means$ID,means_max$ID,nomatch = NA)]
+  
+  means = subset(means, select = -c(ID))
+  
+# ZE 
+
+  means_ZE = subset(means, group == "ZE")
+  means_ZE = subset(means_ZE, select = -c(group))
+  
+  
+  corr_RT_acc_ZE = cor(means_ZE, use="complete.obs")
+  corrplot(corr_RT_acc_ZE, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black') 
+  
+  
+# CT 
+  
+  means_CT = subset(means, group == "CT")
+  means_CT = subset(means_CT, select = -c(group))
+  
+  corr_RT_acc_CT = cor(means_CT, use="complete.obs")
+  corrplot(corr_RT_acc_CT, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black')  
+  
+  
+  cor.test(means$mean_acc, means$GEM_T2)
+  cor.test(means$mean_acc, means$EMK_EM_P_T2)
+  cor.test(means$mean_acc, means$EMK_EM_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_P_T2)  
+  
+  cor.test(means$mean_RT, means$GEM_T2)
+  cor.test(means$mean_RT, means$EMK_EM_P_T2)
+  cor.test(means$mean_RT, means$EMK_EM_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_P_T2)  
+  
+  
+  cor.test(means$bca_grad, means$GEM_T2)
+  cor.test(means$bca_grad, means$EMK_EM_P_T2)
+  cor.test(means$bca_grad, means$EMK_EM_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_P_T2)  
+  cor.test(means$bca_grad, means$mean_RT)
+  cor.test(means$bca_grad, means$mean_acc)
+  
+  cor.test(means$bca_max, means$GEM_T2)
+  cor.test(means$bca_max, means$EMK_EM_P_T2)
+  cor.test(means$bca_max, means$EMK_EM_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_P_T2)
+  cor.test(means$bca_max, means$mean_RT)
+  cor.test(means$bca_max, means$mean_acc)
+  
+
+```
+
+```{r training_increase, eval = FALSE, include = FALSE}
+
+# We can do two types of correlation: 1) Separated by intensity with accuracy and RTs; 2) accuracy / RTs with SEC measures
+
+# Combine max data with behavioral data
+  load.Rdata(filename="./data/max_expr_stats.Rdata", "max_expr")  
+
+  max_expr_rOT =
+      max_expr %>%
+      group_by(ID, emotion,group) %>%
+      summarise(mean_bca = mean(bca, na.rm = TRUE))
+
+  #max_expr_rOT = subset(max_expr, ROI == "rOT")
+
+# Combine grad data with behavioral data
+  load.Rdata(filename="./data/grad_expr_plot.Rdata", "grad_expr")  
+  
+  grad_expr_rOT =
+      grad_expr %>%
+      group_by(ID, emotion, intens,group) %>%
+      summarise(mean_bca = mean(bca, na.rm = TRUE))
+  
+  #grad_expr_rOT = subset(grad_expr, ROI == "rOT")
+  
+  
+# Rename variable
+  #ERT_means =  rename(ERT_means, c("emotion"="emo"))
+  
+# Bring information together  
+  grad_corr = merge(ERT_means, grad_expr_rOT, by = c('ID','emotion', 'intens', 'group'))
+
+# First approach  
+  
+# Correlate them
+  # cor.test(grad_corr$bca[grad_corr$intens == "20%"], grad_corr$RT[grad_corr$intens == "20%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "20%"], grad_corr$perc_hit[grad_corr$intens == "20%"])
+  # 
+  # cor.test(grad_corr$bca[grad_corr$intens == "40%"], grad_corr$RT[grad_corr$intens == "40%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "40%"], grad_corr$perc_hit[grad_corr$intens == "40%"])
+  # 
+  # cor.test(grad_corr$bca[grad_corr$intens == "60%"], grad_corr$RT[grad_corr$intens == "60%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "60%"], grad_corr$perc_hit[grad_corr$intens == "60%"])
+  # 
+  # cor.test(grad_corr$bca[grad_corr$intens == "80%"], grad_corr$RT[grad_corr$intens == "80%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "80%"], grad_corr$perc_hit[grad_corr$intens == "80%"])
+  # 
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$RT[grad_corr$intens == "100%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$perc_hit[grad_corr$intens == "100%"])
+  
+# Second approach
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$GEM_T2[grad_corr$intens == "100%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$EMK_EM_P_T2[grad_corr$intens == "100%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$EMK_EM_CH_T2[grad_corr$intens == "100%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$EMK_EK_CH_T2[grad_corr$intens == "100%"])
+  # cor.test(grad_corr$bca[grad_corr$intens == "100%"], grad_corr$EMK_EK_P_T2[grad_corr$intens == "100%"])
+  # 
+  # cor.test(grad_corr$perc_hit, grad_corr$GEM_T2)
+  # cor.test(grad_corr$perc_hit, grad_corr$EMK_EM_P_T2)
+  # cor.test(grad_corr$perc_hit, grad_corr$EMK_EM_CH_T2)
+  # cor.test(grad_corr$perc_hit, grad_corr$EMK_EK_CH_T2)
+  # cor.test(grad_corr$perc_hit, grad_corr$EMK_EK_P_T2)  
+  # 
+  # 
+  # cor.test(grad_corr$RT, grad_corr$GEM_T2)
+  # cor.test(grad_corr$RT, grad_corr$EMK_EM_P_T2)
+  # cor.test(grad_corr$RT, grad_corr$EMK_EM_CH_T2)
+  # cor.test(grad_corr$RT, grad_corr$EMK_EK_CH_T2)
+  # cor.test(grad_corr$RT, grad_corr$EMK_EK_P_T2)  
+  
+  
+  #ERT_emo = subset(grad_corr, select = c(GEM_T2, EMK_EM_P_T2, EMK_EM_CH_T2, EMK_EK_CH_T2,EMK_EK_P_T2, RT, perc_hit ))
+  
+  means =
+  ERT_means %>%
+  group_by(ID) %>%
+  summarise(mean_RT = mean(RT, na.rm = TRUE),
+            mean_acc = mean(perc_hit, na.rm = TRUE))
+
+   means_grad =
+      grad_expr_rOT %>%
+      group_by(ID) %>%
+      summarise(mean_bca_grad = mean(mean_bca, na.rm = TRUE))
+   
+    means_max =
+      max_expr_rOT %>%
+      group_by(ID) %>%
+      summarise(mean_bca_max = mean(mean_bca, na.rm = TRUE))
+  
+  
+  means$d_GEM = qn_data$d_GEM_Total[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$d_EMK_EM_P = qn_data$d_EMK_EM_P[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$d_EMK_EM_CH = qn_data$d_EMK_EM_CH[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$d_EMK_EK_P = qn_data$d_EMK_EK_P[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$d_EMK_EK_CH = qn_data$d_EMK_EK_CH[match(means$ID,qn_data$ID,nomatch = NA)]
+  means$bca_grad = means_grad$mean_bca_grad[match(means$ID,means_grad$ID,nomatch = NA)]
+  means$bca_max =  means_max$mean_bca_max[match(means$ID,means_max$ID,nomatch = NA)]
+  
+  means = subset(means, select = -c(ID))
+  
+  corr_RT_acc_emo = cor(means, use="complete.obs")
+  corrplot(corr_RT_acc_emo, method = "circle", type = "lower", tl.col = "black",addCoef.col = 'black')  
+  
+  
+  cor.test(means$mean_acc, means$GEM_T2)
+  cor.test(means$mean_acc, means$EMK_EM_P_T2)
+  cor.test(means$mean_acc, means$EMK_EM_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_CH_T2)
+  cor.test(means$mean_acc, means$EMK_EK_P_T2)  
+  
+  cor.test(means$mean_RT, means$GEM_T2)
+  cor.test(means$mean_RT, means$EMK_EM_P_T2)
+  cor.test(means$mean_RT, means$EMK_EM_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_CH_T2)
+  cor.test(means$mean_RT, means$EMK_EK_P_T2)  
+  
+  cor.test(means$bca_grad, means$GEM_T2)
+  cor.test(means$bca_grad, means$EMK_EM_P_T2)
+  cor.test(means$bca_grad, means$EMK_EM_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_CH_T2)
+  cor.test(means$bca_grad, means$EMK_EK_P_T2)  
+  cor.test(means$bca_grad, means$mean_RT)
+  cor.test(means$bca_grad, means$mean_acc)
+  
+  cor.test(means$bca_max, means$GEM_T2)
+  cor.test(means$bca_max, means$EMK_EM_P_T2)
+  cor.test(means$bca_max, means$EMK_EM_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_CH_T2)
+  cor.test(means$bca_max, means$EMK_EK_P_T2)
+  cor.test(means$bca_max, means$mean_RT)
+  cor.test(means$bca_max, means$mean_acc)
+  cor.test(means$bca_max, means$bca_grad)
+  
+
+```
+
+
+## Script_3_Max_Face
+
+### Select ROIs
+
+*ZE*
+
+```{r table_ga_z_score_base_ze, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_base_ze = ga_z_score_chan_ze [, c(1,2)]
+  ga_z_score_base_ze = ga_z_score_base_ze[with(ga_z_score_base_ze, order(-base)),]
+
+
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+# Mark channels with very large Z-scores for odd and base condition
+
+ga_z_score_base_ze %>%
+  mutate(
+  base = cell_spec(base, "html", color = ifelse(base > 15, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+
+*CT*
+
+```{r table_ga_z_score_base_ct, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_base_ct = ga_z_score_chan_ct [, c(1,2)]
+  ga_z_score_base_ct = ga_z_score_base_ct[with(ga_z_score_base_ct, order(-base)),]
+
+
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+# Mark channels with very large Z-scores for odd and base condition
+
+ga_z_score_base_ct %>%
+  mutate(
+  base = cell_spec(base, "html", color = ifelse(base > 15, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+#### Z-scores: expression change response by group
+
+*ZE*
+
+```{r table_ga_z_score_expr_ze, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_expr_ze = ga_z_score_chan_ze [, c(1,3)]
+  ga_z_score_expr_ze = ga_z_score_expr_ze[with(ga_z_score_expr_ze, order(-expr)),]
+
+
+ga_z_score_expr_ze %>%
+  mutate(
+  expr = cell_spec(expr, "html", color = ifelse(expr > 5, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+*CT*
+
+```{r table_ga_z_score_expr_ct, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_expr_ct = ga_z_score_chan_ct [, c(1,3)]
+  ga_z_score_expr_ct = ga_z_score_expr_ct[with(ga_z_score_expr_ct, order(-expr)),]
+
+
+ga_z_score_expr_ct %>%
+  mutate(
+  expr = cell_spec(expr, "html", color = ifelse(expr > 5, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+#### ROI selection
+
+*Base response*
+
+```{r eegcap_max_base, message = FALSE, warning = FALSE}
+
+myelectrodes = c("PO3","PO7","PO9","Oz","O1","O2","PO4","PO8","PO10")
+
+eegcap(myelectrodes, type = c("2d"),
+       plotlabels = FALSE, plotaxes = FALSE, main = "",
+       xyzlab = NULL, cex.point = 2, col.point = c("#8583D3","#8583D3","#8583D3","gray39","gray39","gray39","#a8d383","#a8d383","#a8d383"),
+       col.border = NULL, cex.label = NULL, col.label = NULL, 
+       nose = TRUE, ears = TRUE, head = TRUE, 
+       col.head = "AntiqueWhite", index = FALSE, lwd = 2, 
+       plt = c(0.03,0.97,0.03,0.97))
+
+```
+
+*Expression change response*
+
+```{r eegcap_max_expr, message = FALSE, warning = FALSE}
+
+myelectrodes = c("PO3","PO7","P7","P3","PO4","PO8","P4","P8")
+
+eegcap(myelectrodes, type = c("2d"),
+       plotlabels = FALSE, plotaxes = FALSE, main = "",
+       xyzlab = NULL, cex.point = 2, col.point = c("#8583D3","#8583D3","#8583D3","#8583D3","#a8d383","#a8d383","#a8d383","#a8d383"),
+       col.border = NULL, cex.label = NULL, col.label = NULL, 
+       nose = TRUE, ears = TRUE, head = TRUE, 
+       col.head = "AntiqueWhite", index = FALSE, lwd = 2, 
+       plt = c(0.03,0.97,0.03,0.97))
+
+```
+
+
+
+
+
+
+
+### Frequency-domain analysis
+
+#### SNR by group / emotion
+
+```{r snr_plot_group_hap, results = "asis", fig.height = 4, eval = FALSE}
+
+# Choose rates of interest + average across ROI (Vettori et al., 2019)
+  max_snr_hap_ze_sing_el = subset(max_snr_groups, group == "ZE" & emotion == "happy")
+  max_snr_hap_ze_sing_el = subset(max_snr_hap_ze_sing_el, electrode == "P7" | electrode == "P8"|
+                               electrode == "PO3" | electrode == "PO4"|
+                               electrode == "PO7" | electrode == "PO8"|
+                               electrode == "PO9" | electrode == "PO10" |
+                               electrode == "O1" | electrode == "O2"|
+                               electrode == "Oz")
+                             
+
+  max_snr_hap_ze = aggregate(SNR ~ freq + emotion + group,  max_snr_hap_ze_sing_el, mean)
+
+  max_snr_hap_ct_sing_el = subset(max_snr_groups, group == "CT" & emotion == "happy")
+  max_snr_hap_ct_sing_el = subset(max_snr_hap_ct_sing_el, electrode == "P7" | electrode == "P8"|
+                               electrode == "PO3" | electrode == "PO4"|
+                               electrode == "PO7" | electrode == "PO8"|
+                              electrode == "PO9" | electrode == "PO10" |
+                               electrode == "O1" | electrode == "O2"|
+                               electrode == "Oz")
+                             
+
+  max_snr_hap_ct = aggregate(SNR ~ freq + emotion + group,  max_snr_hap_ct_sing_el, mean)
+
+# For the plot: 
+  # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.htm
+
+  snr_max_groups_happy = ggplot() + 
+    geom_line(data=max_snr_hap_ze, aes(x=freq, y=SNR), color="#D97909",size=1, alpha=0.8)+ 
+    stat_peaks(data=max_snr_hap_ze, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909", shape = 19, span = 47, size = 2, stroke = 2)+
+    geom_line(data=max_snr_hap_ct, aes(x=freq, y=SNR), color="gray53",size=1, alpha=0.8) +
+    stat_peaks(data=max_snr_hap_ct, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53", shape = 19, span = 47, size = 2, stroke  = 2)+
+    scale_x_continuous(breaks=seq(0,7,1), limits = c(0.5,7), expand = c(0,0), guide = guide_prism_minor())+
+    scale_y_continuous(limits = c(0.8,5), guide = guide_prism_minor())+
+    xlab ('Frequency (Hz)') +  
+    theme_prism(base_size = 14) +
+    expand_limits(x = 0, y = 0)+
+    theme(panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA)) # bg of the plot
+  
+   snr_max_groups_happy 
+  
+  ggsave("./figures/SNR_max_groups_happy.png", bg = "transparent", dpi = 300)
+
+```
+
+```{r snr_plot_group_ang, results = "asis", fig.height = 4, eval = FALSE}
+
+# Choose rates of interest + average across ROI (Vettori et al., 2019)
+  max_snr_ang_ze_sing_el = subset(max_snr_groups, group == "ZE" & emotion == "angry")
+  max_snr_ang_ze_sing_el = subset(max_snr_ang_ze_sing_el, electrode == "P7" | electrode == "P8"|
+                               electrode == "PO3" | electrode == "PO4"|
+                               electrode == "PO7" | electrode == "PO8"|
+                               electrode == "PO9" | electrode == "PO10" |
+                               electrode == "O1" | electrode == "O2"|
+                               electrode == "Oz")
+                             
+
+  max_snr_ang_ze = aggregate(SNR ~ freq + emotion + group,  max_snr_ang_ze_sing_el, mean)
+
+  max_snr_ang_ct_sing_el = subset(max_snr_groups, group == "CT" & emotion == "angry")
+  max_snr_ang_ct_sing_el = subset(max_snr_ang_ct_sing_el, electrode == "P7" | electrode == "P8"|
+                               electrode == "PO3" | electrode == "PO4"|
+                               electrode == "PO7" | electrode == "PO8"|
+                               electrode == "PO9" | electrode == "PO10" |
+                               electrode == "O1" | electrode == "O2"|
+                               electrode == "Oz")
+                             
+
+  max_snr_ang_ct = aggregate(SNR ~ freq + emotion + group,  max_snr_ang_ct_sing_el, mean)
+
+# For the plot: 
+  # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.htm
+
+  snr_max_groups_angry = ggplot() + 
+    geom_line(data=max_snr_ang_ze, aes(x=freq, y=SNR), color="#D97909",size=1, alpha=0.8)+ 
+    stat_peaks(data=max_snr_ang_ze, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909", shape = 19, span = 47, size = 2, stroke = 2)+
+    geom_line(data=max_snr_ang_ct, aes(x=freq, y=SNR), color="gray53",size=1, alpha=0.8) +
+    stat_peaks(data=max_snr_ang_ct, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53", shape = 19, span = 47, size = 2, stroke  = 2)+
+    scale_x_continuous(breaks=seq(0,7,1), limits = c(0.5,7), expand = c(0,0), guide = guide_prism_minor())+
+    scale_y_continuous(limits = c(0.8,5), guide = guide_prism_minor())+
+    xlab ('Frequency (Hz)') +  
+    theme_prism(base_size = 14) +
+    expand_limits(x = 0, y = 0)+
+    theme(panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA)) # bg of the plot
+  
+   snr_max_groups_angry 
+  
+  #max_snr_elec = subset(max_snr_groups, electrode == "P8" | electrode == "O1")
+  
+# Create legend
+  # snr_leg_ang_groups = get_legend(ggplot(data = max_snr_elec, aes(y=SNR, x = freq, color = electrode))+
+  #     geom_point(size = 2, shape = 21, stroke = 2)+
+  #     scale_color_manual(values=c("#D97909","gray53"),
+  #                        labels = c("ZE P8 angry", "CT P8 angry"),
+  #                        name = "")+
+  #     theme(panel.background = element_rect(fill = "transparent"),
+  #     plot.background = element_rect(fill = "transparent", color = NA)))
+  
+# Display plot  
+    # snr_max_ang_gr = cowplot::plot_grid(snr_max_groups_angry, snr_leg_ang_groups , nrow = 1, rel_widths = c(1.5, .5))
+    # snr_max_ang_gr 
+
+# Save without white background
+  ggsave("./figures/SNR_max_groups_angry.png", bg = "transparent", dpi = 300)
+
+```
+
+
+
+
+#### Base response visualization
+
+```{r BCA_base_resp_plot_groups, results = "asis", fig.height = 5, fig.width = 5, eval = FALSE}
+
+# Create data summary
+  max_base_plot_group = data_summary(max_base_plot, varname="bca", groupnames=c("group","ROI", "emotion"))
+
+# Plot Base response differences for emotions 
+  max_base_groups = ggplot(max_base_plot_group, aes(x=emotion, y=bca, fill = group))+
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, size =1, position = position_dodge(width = 0.9))+
+            scale_fill_manual(values=c('gray53','#D97909'))+
+            scale_y_continuous(limits = c(0,1.5), guide = guide_prism_minor())+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+           # ylim(0,2.3)+
+            theme_prism(base_size = 14)+
+            theme(legend.position = "bottom",
+                  panel.background = element_rect(fill = "transparent"),
+                  plot.background = element_rect(fill = "transparent", color = NA),
+                  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+                  legend.box.background = element_rect(fill = "transparent"))+
+            facet_wrap(~ROI)
+
+  max_base_groups
+
+  ggsave("./figures/max_base_groups.png", bg = "transparent", dpi = 300)
+
+  
+```
+
+```{r BCA_base_resp_topo_groups, results = "asis", fig.height = 5, fig.width = 10, eval = FALSE}
+
+# Subset for base 
+  max_topo_base = subset(max_topo, manip == "base")
+
+# Add group
+  max_topo_base$group = qn_data$group[match(max_topo_base$ID,qn_data$ID,nomatch = NA)]
+    
+# Subset for emotions
+  max_topo_base_hap = subset(max_topo_base, emotion == "happy")
+  max_topo_base_ang = subset(max_topo_base, emotion == "angry")
+    
+# Add montage
+  max_topo_base_hap = electrode_locations(max_topo_base_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  max_topo_base_ang = electrode_locations(max_topo_base_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  
+  topo_hap_base_all = ggplot(max_topo_base_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.7)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+  
+  topo_ang_base_all = ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.7)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))) +
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(max_topo_base_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.7)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))
+    
+    
+# Combine plots 
+   fig_max_base_topo_groups = cowplot::plot_grid(topo_hap_base_all, topo_ang_base_all, topo_leg, nrow = 1, rel_heights = c(1, 1,.2))
+   fig_max_base_topo_groups 
+   
+# Save plots with transparent background     
+  ggsave("./figures/max_base_topo_groups.png", bg = "transparent", dpi = 300)    
+    
+
+```
+
+#### Base response ANOVA
+```{r BCA_base_resp_ANOVA, results = "asis"}
+
+# Calculate ANOVA  
+  max_base_an = aov_ez("ID", "bca", max_base_stats, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_base_an$anova_table)   
+  
+```
+
+```{r BCA_base_resp_posthoc_calc_emo, include = FALSE}
+
+# Do post-hoc test 
+  max_base_ph = emmeans(max_base_an, ~ "emotion")
+  max_base_ph_emo = print(pairs(max_base_ph))
+  
+```
+
+```{r BCA_base_resp_posthoc_show_emo, results = "asis"}
+
+# Display results
+  pander(max_base_ph_emo)
+
+```
+
+```{r BCA_base_resp_posthoc_calc_emo_ROI, include = FALSE}
+
+# Do post-hoc test 
+  max_base_ph = emmeans(max_base_an, ~ "emotion", by = "ROI")
+  max_base_ph_emo_roi = print(pairs(max_base_ph))
+  
+```
+
+```{r BCA_base_resp_posthoc_show_emo_ROI, results = "asis"}
+
+# Display results
+  pander(max_base_ph_emo_roi)
+
+```
+
+
+
+
+#### Expression change response visualization
+
+```{r BCA_expr_change_group_plot, results = "asis", fig.height = 5, fig.width = 5, eval = FALSE}
+
+# Create data summary
+  max_expr_plot_prep = data_summary(max_expr_plot, varname="bca", groupnames=c("group","ROI", "emotion"))
+
+# Plot expression change response differences for emotions 
+
+ max_expr_groups = ggplot(max_expr_plot_prep, aes(x=emotion, y=bca, fill=group)) +
+            geom_bar(stat="identity", color="black", position = "dodge2", size = 1)+
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.1, position=position_dodge(0.9), size = 1)+
+            labs(x = "Emotion", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('gray53','#D97909'))+
+            scale_y_continuous(limits = c(0,2), guide = guide_prism_minor())+
+            theme_prism(base_size = 14)+
+            theme(legend.position = "bottom",
+                  panel.background = element_rect(fill = "transparent"),
+                  plot.background = element_rect(fill = "transparent", color = NA),
+                  legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+                  legend.box.background = element_rect(fill = "transparent"))+        
+            facet_wrap(~ROI)
+ 
+# Display plot 
+  max_expr_groups
+
+# Save plot with transparent background  
+  ggsave("./figures/max_expr_groups.png", bg = "transparent", dpi = 300) 
+
+```
+
+```{r BCA_expr_change_resp_topo_groups, results = "asis",fig.height = 5, fig.width = 10, eval = FALSE}
+
+# Subset for base 
+  max_topo_expr = subset(max_topo, manip == "expr")
+
+# Add group
+  max_topo_expr$group = qn_data$group[match(max_topo_expr$ID,qn_data$ID,nomatch = NA)]
+    
+# Subset for emotions
+  max_topo_expr_hap = subset(max_topo_expr, emotion == "happy")
+  max_topo_expr_ang = subset(max_topo_expr, emotion == "angry")
+    
+# Add montage
+  max_topo_expr_hap = electrode_locations(max_topo_expr_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+  max_topo_expr_ang = electrode_locations(max_topo_expr_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# Happy faces 
+  topo_hap_expr_all = ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+  
+# Get legend happy faces
+    topo_leg_hap = get_legend(ggplot(max_topo_expr_hap, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+    
+    
+# Combine plots 
+   fig_max_expr_topo_groups_hap = cowplot::plot_grid(topo_hap_expr_all, topo_leg_hap, nrow = 1, rel_heights = c(1, 1,.2))
+   fig_max_expr_topo_groups_hap 
+   
+# Save plots with transparent background     
+  ggsave("./figures/max_expr_topo_groups_hap.png", bg = "transparent", dpi = 300)     
+    
+# Angry faces
+    topo_ang_expr_all = ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(-0.2,1.2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))) +
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+  
+# Get legend angry faces
+    topo_leg_ang = get_legend(ggplot(max_topo_expr_ang, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    ggtitle("angry")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 1.5,
+                              head_size = 1.5) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(-0.2,1.2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))
+    
+    
+# Combine plots 
+   fig_max_expr_topo_groups_ang = cowplot::plot_grid(topo_ang_expr_all, topo_leg_ang, nrow = 1, rel_heights = c(1, 1,.2))
+   fig_max_expr_topo_groups_ang 
+   
+# Save plots with transparent background     
+  ggsave("./figures/max_expr_topo_groups_ang.png", bg = "transparent", dpi = 300)    
+    
+```
+
+#### Expression change response ANOVA
+
+```{r BCA_expr_change_ANOVA, results = "asis"}
+
+# Calculate ANOVA  
+  max_expr_an = aov_ez("ID", "bca", max_expr_stats, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(max_expr_an$anova_table)   
+  
+```
+
+```{r BCA_expr_resp_posthoc_calc_emo, include = FALSE}
+
+# Do post-hoc test 
+  max_expr_ph = emmeans(max_expr_an, ~ "emotion")
+  max_expr_ph_emo = print(pairs(max_expr_ph))
+  
+```
+
+
+```{r BCA_expr_resp_posthoc_show_emo, results = "asis"}
+
+# Display results
+  pander(max_expr_ph_emo)
+
+```
+
+
+```{r BCA_expr_resp_posthoc_calc_roi, include = FALSE}
+
+# Do post-hoc test 
+  max_expr_ph = emmeans(max_expr_an, ~ "ROI")
+  max_expr_ph_roi = print(pairs(max_expr_ph))
+  
+```
+
+
+```{r BCA_expr_resp_posthoc_show_roi, results = "asis"}
+
+# Display results
+  pander(max_expr_ph_roi)
+
+```
+
+
+### Time-domain analysis
+#### Visualization
+
+```{r max_grand_av, message = FALSE, warning = FALSE}
+
+# Add emotion condition
+  hap_traj$emotion = "happy"
+  ang_traj$emotion = "angry"
+
+# Combine data sets
+  max_traj = rbind(hap_traj,ang_traj)
+ 
+# Select lOT electrodes and average across electrodes
+  max_traj_lOT = subset(max_traj, select=c(ID, time, emotion, PO3, PO7, PO9))
+  max_traj_lOT_av = data.frame(ID=max_traj_lOT[,1], time=max_traj_lOT[,2],
+                               emotion=max_traj_lOT[,3], Means=rowMeans(max_traj_lOT[,4:6]))
+  
+  max_traj_lOT_av$group = qn_data$group[match(max_traj_lOT_av$ID,qn_data$ID,nomatch = NA)]
+  
+  # Select rOT electrodes and average across electrodes
+  max_traj_rOT = subset(max_traj, select=c(ID, time, emotion, PO4, PO8, PO10))
+  max_traj_rOT_av = data.frame(ID=max_traj_rOT[,1], time=max_traj_rOT[,2],
+                               emotion=max_traj_rOT[,3], Means=rowMeans(max_traj_rOT[,4:6]))
+  
+  
+  max_traj_rOT_av$group = qn_data$group[match(max_traj_rOT_av$ID,qn_data$ID,nomatch = NA)]
+
+# Create grandaverage to detect peaks for P1, N170, P3
+  # max_traj_lOT_av = includes mean of lOT electrodes
+  # max_traj_rOT_av = includes mean of rOT electrodes
+
+  # Average across ROIs
+    max_ROI_av = (max_traj_lOT_av$Means + max_traj_rOT_av$Means)/2
+    max_grandav_ROI = data.frame(ID = max_traj_lOT_av[,1], time=max_traj_lOT_av[,2],
+                                  emotion = max_traj_lOT_av[,3], mean = max_ROI_av)
+    
+  # Average across emotion  
+    max_grandav_emo = aggregate(mean ~ time + ID, max_grandav_ROI, mean)
+    
+  # Average across ID
+    max_grandav = aggregate(mean ~ time, max_grandav_emo, mean)
+    
+# Plot grand-average     
+    
+ ggplot(max_grandav,aes(time,mean))+
+          ggtitle("Grand average") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid")+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-1, 3),xlim=c(-160,600)) +
+          scale_y_continuous(breaks=seq(-1, 3, 1))+
+          scale_x_continuous(breaks=seq(-150,600,50))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey") 
+```
+
+```{r max_traj_group, warning = FALSE, message = FALSE, fig.height = 10, fig.width= 6, eval = FALSE}
+
+ 
+# Select lOT electrodes and average across electrodes
+  max_traj$group = qn_data$group[match(max_traj$ID,qn_data$ID,nomatch = NA)]
+  max_traj = subset(max_traj, select = c(ID, time, emotion, group, PO3, PO7, PO9, PO4, PO8, PO10, O1, O2, Oz))
+
+  max_traj_av = data.frame(ID=max_traj[,1], time=max_traj[,2],
+                               emotion = max_traj[,3], 
+                               group = max_traj[,4], 
+                               lOT = rowMeans(max_traj[,5:7]),
+                               rOT = rowMeans(max_traj[,8:10]),
+                               MO = rowMeans(max_traj[,11:13]))
+  
+  max_traj_av = gather(max_traj_av, ROI, amp, lOT:MO, factor_key=TRUE)
+  
+  unique(max_traj_av$ID)
+  unique(max_expr_stats$ID)
+
+  max_traj_ZE = subset(max_traj_av, group == "ZE")
+  max_traj_CT = subset(max_traj_av, group == "CT")
+  
+# Plot data
+  max_ZE = ggplot(max_traj_ZE, aes(time, amp))+
+          ggtitle("Zirkus Empathico") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col)+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~ROI)
+
+# Plot data
+     max_CT = ggplot(max_traj_CT, aes(time,amp))+
+            ggtitle("Controls") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1.2, linetype = "solid", aes(colour= emotion))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          scale_colour_manual(values = FPVS_col) +
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          coord_cartesian(ylim=c(-2, 4),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,600,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          theme_classic(base_size = 15)+
+          theme(legend.position = "bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          facet_grid(~ROI)
+    
+# Combine plots 
+   fig_max_ERPs_groups = cowplot::plot_grid(max_CT, max_ZE, nrow = 2, rel_heights = c(1, 1))
+   fig_max_ERPs_groups 
+   
+# Save plots with transparent background     
+  ggsave("./figures/fig_max_ERPs_groups.png", bg = "transparent", dpi = 300)
+  
+   
+```
+
+#### Mean amplitude {.tabset .tabset-pills}
+
+##### P1
+
+```{r ANOVA_P1_amp, results = "asis"}
+
+  
+ P1_an = aov_ez("ID", "amp", P1_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = FALSE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P1_an$anova_table)   
+  
+```
+
+##### N170
+
+```{r ANOVA_N170_amp, results = "asis"}
+
+
+  N170_an = aov_ez("ID", "amp", N170_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(N170_an$anova_table)   
+  
+```
+
+```{r ANOVA_N170_posthoc_calc, include = FALSE}
+
+# Do post-hoc test 
+  N170_amp_ph = emmeans(N170_an, ~ "emotion")
+  N170_amp_ph_all_emo = print(pairs(N170_amp_ph))
+  
+```
+
+```{r ANOVA_N170_posthoc_show, results = "asis"}
+
+# Display results
+  pander(N170_amp_ph_all_emo)
+
+```
+
+
+##### P3
+
+```{r ANOVA_P3_amp, results = "asis"}
+  
+ P3_an = aov_ez("ID", "amp", P3_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P3_an$anova_table)   
+  
+```
+
+```{r ANOVA_P3_posthoc_calc, include = FALSE}
+
+# Do post-hoc test 
+  P3_amp_ph = emmeans(P3_an, ~ "ROI")
+  P3_amp_ph_all_emo = print(pairs(P3_amp_ph))
+  
+```
+
+```{r ANOVA_P3_posthoc_show, results = "asis"}
+
+# Display results
+  pander(P3_amp_ph_all_emo)
+
+```
+
+
+#### Peak latency {.tabset .tabset-pills}
+
+##### P1
+
+```{r ANOVA_P1_lat, results = "asis"}
+
+  P1_lat_an = aov_ez("ID", "lat", P1_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P1_lat_an$anova_table)   
+  
+```
+
+```{r, include = FALSE}
+
+# Do post-hoc test 
+  P1_amp_ph = emmeans(P1_lat_an, ~ "emotion")
+  P1_amp_ph_all_emo = print(pairs(P1_amp_ph))
+  
+```
+
+```{r, results = "asis"}
+
+# Display results
+  pander(P1_amp_ph_all_emo)
+
+```
+
+##### N170
+
+```{r ANOVA_N170_lat, results = "asis"}
+
+  N170_lat_an = aov_ez("ID", "lat", N170_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(N170_lat_an$anova_table)   
+  
+```
+
+```{r, include = FALSE}
+
+# Do post-hoc test 
+  N170_amp_ph = emmeans(N170_lat_an, ~ "emotion")
+  N170_amp_ph_all_emo = print(pairs(N170_amp_ph))
+  
+```
+
+```{r, results = "asis"}
+
+# Display results
+  pander(N170_amp_ph_all_emo)
+
+```
+
+
+##### P3
+
+```{r ANOVA_P3_lat, results = "asis"}
+
+  P3_lat_an = aov_ez("ID", "lat", P3_av, between = c("group"),
+      within = c("emotion","ROI"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(P3_lat_an$anova_table)   
+  
+```
+
+```{r, include = FALSE}
+
+# Do post-hoc test 
+  P3_amp_ph = emmeans(P3_lat_an, ~ "emotion")
+  P3_amp_ph_all_emo = print(pairs(P3_amp_ph))
+  
+```
+
+```{r, results = "asis"}
+
+# Display results
+  pander(P3_amp_ph_all_emo)
+
+```
+
+
+# Script_4_Grad_Face
+
+### BCA base response
+
+```{r BCA_base_resp_topo_hap, results = "asis", eval = FALSE}
+
+# Subset for base 
+  grad_topo_base = subset(grad_topo, manip == "base")
+    
+# Subset for emotions
+  grad_topo_base_hap = subset(grad_topo_base, emotion == "happy")
+    
+# Add montage
+  grad_topo_base_hap = electrode_locations(grad_topo_base_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_base_hap_twent = subset(grad_topo_base_hap, intens == "20%")
+  
+  topo_hap_base_twent = ggplot(grad_topo_base_hap_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_base_twent
+  
+  ggsave("./figures/grad_base_group_hap_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_base_hap_fort = subset(grad_topo_base_hap, intens == "40%")
+  
+  topo_hap_base_fort = ggplot(grad_topo_base_hap_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_base_fort
+  
+  ggsave("./figures/grad_base_group_hap_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_base_hap_sixt = subset(grad_topo_base_hap, intens == "60%")
+  
+  topo_hap_base_sixt = ggplot(grad_topo_base_hap_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_base_sixt
+  
+  ggsave("./figures/grad_base_group_hap_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_base_hap_eigt = subset(grad_topo_base_hap, intens == "80%")
+  
+  topo_hap_base_eigt = ggplot(grad_topo_base_hap_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_base_eigt
+  
+  ggsave("./figures/grad_base_group_hap_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_base_hap_oneh = subset(grad_topo_base_hap, intens == "100%")
+  
+  topo_hap_base_oneh = ggplot(grad_topo_base_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_base_oneh
+  
+  ggsave("./figures/grad_base_group_hap_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_base_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_base_group_hap_topo.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+```{r BCA_base_resp_topo_ang, results = "asis", eval = FALSE}
+
+# Subset for base 
+  grad_topo_base = subset(grad_topo, manip == "base")
+    
+# Subset for emotions
+  grad_topo_base_ang = subset(grad_topo_base, emotion == "angry")
+                     
+# Add montage
+  grad_topo_base_ang = electrode_locations(grad_topo_base_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_base_ang_twent = subset(grad_topo_base_hap, intens == "20%")
+  
+  topo_ang_base_twent = ggplot(grad_topo_base_ang_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_base_twent
+  
+  ggsave("./figures/grad_base_group_ang_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_base_ang_fort = subset(grad_topo_base_hap, intens == "40%")
+  
+  topo_ang_base_fort = ggplot(grad_topo_base_ang_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_base_fort
+  
+  ggsave("./figures/grad_base_group_ang_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_base_ang_sixt = subset(grad_topo_base_hap, intens == "60%")
+  
+  topo_ang_base_sixt = ggplot(grad_topo_base_ang_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_base_sixt
+  
+  ggsave("./figures/grad_base_group_ang_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_base_ang_eigt = subset(grad_topo_base_hap, intens == "80%")
+  
+  topo_ang_base_eigt = ggplot(grad_topo_base_ang_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_base_eigt
+  
+  ggsave("./figures/grad_base_group_ang_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_base_ang_oneh = subset(grad_topo_base_hap, intens == "100%")
+  
+  topo_ang_base_oneh = ggplot(grad_topo_base_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_base_oneh
+  
+  ggsave("./figures/grad_base_group_ang_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_base_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(0,1.6)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_base_group_ang_topo.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+```{r BCA_base_resp_plot_groups, results = "asis", eval = FALSE}
+
+
+# Create data summary
+  grad_base_plot_prep = data_summary(grad_base_plot, varname="bca", groupnames=c("ROI", "emotion", "intens", "group"))
+
+# Plot base response differences for emotions
+  base_plot = ggplot(grad_base_plot_prep, aes(x=intens, y=bca, fill=group)) +
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.2, position=position_dodge(.9))+
+            geom_bar(stat="identity", color="black", position=position_dodge())+
+            scale_y_continuous(limits = c(0,1.5), guide = guide_prism_minor())+
+            facet_wrap(~ emotion + ROI)+
+            labs(x = "", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('gray53','#D97909'))+
+            #ylim(0,3)+
+            theme_prism(base_size = 10)+
+            theme(legend.position="bottom")
+  
+  base_plot
+  
+  ggsave("./figures/grad_base_groups.png", bg = "transparent", dpi = 300) 
+    
+```
+
+### BCA expression-change response
+
+```{r BCA_expr_resp_plot_groups, results = "asis", eval = FALSE}
+
+# Create data summary
+
+  grad_expr_plot_prep = data_summary(grad_expr_plot, varname="bca", groupnames=c("ROI", "emotion", "intens","group"))
+ # grad_expr_plot_prep$bca = abs(grad_expr_plot_prep$bca)
+  
+
+# Plot expr response differences for emotions
+  expr_plot = ggplot(grad_expr_plot_prep, aes(x=intens, y=bca, fill=group)) +
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.2, position=position_dodge(.9))+
+            geom_bar(stat="identity", color="black", position=position_dodge())+
+            facet_wrap(~ emotion + ROI)+
+            labs(x = "", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('gray53','#D97909'))+
+            scale_y_continuous(limits = c(-1,1.5), guide = guide_prism_minor())+
+            theme_prism(base_size = 10)+
+            theme(legend.position="bottom")
+  
+  expr_plot
+  
+ ggsave("./figures/grad_expr_groups.png", bg = "transparent", dpi = 300)   
+    
+```
+
+```{r BCA_expr_resp_topo_hap, results = "asis", eval = FALSE}
+
+lim_1 = -1.1
+lim_2 = 1.5
+
+# Subset for expr 
+  grad_topo_expr = subset(grad_topo, manip == "expr")
+
+  #grad_topo_expr$amplitude = abs(grad_topo_expr$amplitude)
+    
+# Subset for emotions
+  grad_topo_expr_hap = subset(grad_topo_expr, emotion == "happy")
+    
+# Add montage
+  grad_topo_expr_hap = electrode_locations(grad_topo_expr_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_expr_hap_twent = subset(grad_topo_expr_hap, intens == "20%")
+  
+  topo_hap_expr_twent = ggplot(grad_topo_expr_hap_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_expr_twent
+  
+  ggsave("./figures/grad_expr_group_hap_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_expr_hap_fort = subset(grad_topo_expr_hap, intens == "40%")
+  
+  topo_hap_expr_fort = ggplot(grad_topo_expr_hap_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_expr_fort
+  
+  ggsave("./figures/grad_expr_group_hap_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_expr_hap_sixt = subset(grad_topo_expr_hap, intens == "60%")
+  
+  topo_hap_expr_sixt = ggplot(grad_topo_expr_hap_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_expr_sixt
+  
+  ggsave("./figures/grad_expr_group_hap_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_expr_hap_eigt = subset(grad_topo_expr_hap, intens == "80%")
+  
+  topo_hap_expr_eigt = ggplot(grad_topo_expr_hap_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_expr_eigt
+  
+  ggsave("./figures/grad_expr_group_hap_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_expr_hap_oneh = subset(grad_topo_expr_hap, intens == "100%")
+  
+  topo_hap_expr_oneh = ggplot(grad_topo_expr_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_hap_expr_oneh
+  
+  ggsave("./figures/grad_expr_group_hap_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_expr_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_expr_group_hap_topo.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+```{r BCA_expr_resp_topo_ang, results = "asis", eval = FALSE}
+
+lim_1 = -0.5
+lim_2 = 3.2
+
+# Subset for base 
+  grad_topo_expr = subset(grad_topo, manip == "expr")
+  
+  grad_topo_expr$amplitude = abs(grad_topo_expr$amplitude)
+    
+# Subset for emotions
+  grad_topo_expr_ang = subset(grad_topo_expr, emotion == "angry")
+                     
+# Add montage
+  grad_topo_expr_ang = electrode_locations(grad_topo_expr_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_expr_ang_twent = subset(grad_topo_expr_ang, intens == "20%")
+  
+  topo_ang_expr_twent = ggplot(grad_topo_expr_ang_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_expr_twent
+  
+  ggsave("./figures/grad_expr_group_ang_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_expr_ang_fort = subset(grad_topo_expr_ang, intens == "40%")
+  
+  topo_ang_expr_fort = ggplot(grad_topo_expr_ang_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_expr_fort
+  
+  ggsave("./figures/grad_expr_group_ang_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_expr_ang_sixt = subset(grad_topo_expr_ang, intens == "60%")
+  
+  topo_ang_expr_sixt = ggplot(grad_topo_expr_ang_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_expr_sixt
+  
+  ggsave("./figures/grad_expr_group_ang_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_expr_ang_eigt = subset(grad_topo_expr_ang, intens == "80%")
+  
+  topo_ang_expr_eigt = ggplot(grad_topo_expr_ang_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_expr_eigt
+  
+  ggsave("./figures/grad_expr_group_ang_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_expr_ang_oneh = subset(grad_topo_expr_ang, intens == "100%")
+  
+  topo_ang_expr_oneh = ggplot(grad_topo_expr_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")+
+                    facet_grid(~group)
+
+  topo_ang_expr_oneh
+  
+  ggsave("./figures/grad_expr_group_ang_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_expr_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_expr_group_ang_topo.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+#### ANOVA
+
+```{r BCA_expr_resp_ANOVA, results = "asis"}
+
+#grad_expr_stats$bca = abs(grad_expr_stats$bca)
+
+# Calculate ANOVA  
+  grad_expr_an = aov_ez("ID", "bca", grad_expr_stats, between = c("group"),
+      within = c("emotion","ROI", "intens"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(grad_expr_an$anova_table) 
+
+```
+
+
+#### ANOVA
+
+```{r BCA_base_resp_ANOVA, results = "asis"}
+
+# Calculate ANOVA  
+  grad_base_an = aov_ez("ID", "bca", grad_base_stats, between = c("group"),
+      within = c("emotion","ROI", "intens"), factorize = TRUE,
+      anova_table = list(correction = "none", es = "pes"))
+  
+  pander(grad_base_an$anova_table) 
+
+
+```
+
+
+### P1 w MO
+
+```{r LMM_grad_P1, results="asis"}
+
+# Load data
+  grad_P1_amp_twent = read.delim("./data/grad_P1_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_fort = read.delim("./data/grad_P1_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_sixt = read.delim("./data/grad_P1_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_eigt = read.delim("./data/grad_P1_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_oneh = read.delim("./data/grad_P1_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_P1_amp_twent = read.delim("./data/grad_P1_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_fort = read.delim("./data/grad_P1_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_sixt = read.delim("./data/grad_P1_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_eigt = read.delim("./data/grad_P1_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_oneh = read.delim("./data/grad_P1_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+  
+# Add intensity
+  grad_P1_amp_twent = mutate(grad_P1_amp_twent, intens = "20%")
+  grad_P1_amp_fort = mutate(grad_P1_amp_fort, intens = "40%")
+  grad_P1_amp_sixt = mutate(grad_P1_amp_sixt, intens = "60%")
+  grad_P1_amp_eigt = mutate(grad_P1_amp_eigt, intens = "80%")
+  grad_P1_amp_oneh = mutate(grad_P1_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_P1 = rbind(grad_P1_amp_twent,grad_P1_amp_fort,grad_P1_amp_sixt,grad_P1_amp_eigt,grad_P1_amp_oneh)
+  
+# Recode emotion condition  
+  grad_P1 =  grad_P1 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_P1 = gather(grad_P1, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_P1$ROI = NA
+  grad_P1[grad_P1$elec == "PO7" | grad_P1$elec == "PO3" | grad_P1$elec == "P7" | grad_P1$elec == "PO9",]$ROI = "lOT"
+  grad_P1[grad_P1$elec == "PO8" | grad_P1$elec == "PO4" | grad_P1$elec == "P8" | grad_P1$elec == "PO10",]$ROI = "rOT"
+  grad_P1[grad_P1$elec == "O1" | grad_P1$elec == "Oz" | grad_P1$elec == "O2",]$ROI = "MO"
+  
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_P1$group = qn_data$group[match(grad_P1$ID,qn_data$ID,nomatch = NA)]
+  
+
+# Convert ID, group & emotion into factor variables
+  grad_P1$ID = factor(grad_P1$ID)
+  grad_P1$emotion = factor(grad_P1$emotion)
+  grad_P1$group = factor(grad_P1$group)
+  grad_P1$intens = factor(grad_P1$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P1$ROI = factor(grad_P1$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P1$emotion) = contr.treatment(2)
+  contrasts(grad_P1$group) = contr.treatment(2)
+  contrasts(grad_P1$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_P1$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_P1 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_P1, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_res = anova(mod_P1)
+  knitr::kable(mod_P1_res)  
+  
+  eff_size = eta_sq(mod_P1_res, partial = TRUE)
+  knitr::kable(eff_size)
+  
+  
+# Post-hoc tests
+  m.roi = emmeans(mod_P1, "ROI")
+
+  ROI = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(ROI)
+  
+  m.intens = emmeans(mod_P1, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens)  
+  
+```
+
+*MO*
+
+```{r LMM_grad_P1_MO, results="asis", fig.width = 10, fig.height = 4}
+
+# Select MO
+  grad_P1_MO = subset(grad_P1, ROI == "MO")
+
+  
+# Build model                
+  mod_P1_MO = lmer(amp ~ emotion*intens*group + (1|ID),
+                        data = grad_P1_MO, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_MO_res = anova(mod_P1_MO)
+  knitr::kable(mod_P1_MO_res)
+  
+  
+# Examine interaction
+  int_emo_int = emmip(mod_P1_MO, group ~ intens | emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_int
+  
+  # Save without white background
+  ggsave("./figures/grad_P1_MO_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P1_MO, pairwise ~ group | intens | emotion)
+  knitr::kable(emm_s.t$contrasts)
+
+  
+```
+
+
+*lOT*
+
+```{r LMM_grad_P1_lOT, results="asis", fig.width = 10, fig.height = 4}
+
+# Select lOT
+  grad_P1_lOT = subset(grad_P1, ROI == "lOT")
+
+  
+# Build model                
+  mod_P1_lOT = lmer(amp ~ emotion*intens*group + (1|ID),
+                        data = grad_P1_lOT, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_lOT_res = anova(mod_P1_lOT)
+  knitr::kable(mod_P1_lOT_res)  
+
+
+# Examine interaction
+  int_mod_int = emmip(mod_P1_lOT, group ~ intens | emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_mod_int
+  
+  # Save without white background
+  ggsave("./figures/grad_P1_lOT_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P1_lOT, pairwise ~ group | intens | emotion)
+  knitr::kable(emm_s.t$contrasts)  
+
+  
+     
+```
+
+
+*rOT*
+
+```{r LMM_grad_P1_rOT, results="asis", width = 10}
+
+# Select rOT
+  grad_P1_rOT = subset(grad_P1, ROI == "rOT")
+
+  
+# Build model                
+  mod_P1_rOT = lmer(amp ~ emotion*intens*group + (1|ID),
+                        data = grad_P1_rOT, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_rOT_res = anova(mod_P1_rOT)
+  knitr::kable(mod_P1_rOT_res)  
+  
+  m.intens = emmeans(mod_P1_rOT, "intens")
+  
+    main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens)
+  
+```
+
+### N170 w MO
+
+```{r LMM_grad_N170, results="asis", fig.width = 12}
+
+# Load data
+  grad_N170_amp_twent = read.delim("./data/grad_N170_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_fort = read.delim("./data/grad_N170_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_sixt = read.delim("./data/grad_N170_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_eigt = read.delim("./data/grad_N170_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_oneh = read.delim("./data/grad_N170_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_N170_amp_twent = read.delim("./data/grad_N170_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_fort = read.delim("./data/grad_N170_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_sixt = read.delim("./data/grad_N170_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_eigt = read.delim("./data/grad_N170_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_oneh = read.delim("./data/grad_N170_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+  
+# Add intensity
+  grad_N170_amp_twent = mutate(grad_N170_amp_twent, intens = "20%")
+  grad_N170_amp_fort = mutate(grad_N170_amp_fort, intens = "40%")
+  grad_N170_amp_sixt = mutate(grad_N170_amp_sixt, intens = "60%")
+  grad_N170_amp_eigt = mutate(grad_N170_amp_eigt, intens = "80%")
+  grad_N170_amp_oneh = mutate(grad_N170_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_N170 = rbind(grad_N170_amp_twent,grad_N170_amp_fort,grad_N170_amp_sixt,grad_N170_amp_eigt,grad_N170_amp_oneh)
+  
+# Recode emotion condition  
+  grad_N170 =  grad_N170 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_N170 = gather(grad_N170, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_N170$ROI = NA
+  grad_N170[grad_N170$elec == "PO7" | grad_N170$elec == "PO3" | grad_N170$elec == "P7" | grad_N170$elec == "PO9",]$ROI = "lOT"
+  grad_N170[grad_N170$elec == "PO8" | grad_N170$elec == "PO4" | grad_N170$elec == "P8" | grad_N170$elec == "PO10",]$ROI = "rOT"
+  grad_N170[grad_N170$elec == "O1" | grad_N170$elec == "Oz" | grad_N170$elec == "O2",]$ROI = "MO"
+  
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_N170$group = qn_data$group[match(grad_N170$ID,qn_data$ID,nomatch = NA)]
+  
+
+# Convert ID, group & emotion into factor variables
+  grad_N170$ID = factor(grad_N170$ID)
+  grad_N170$emotion = factor(grad_N170$emotion)
+  grad_N170$group = factor(grad_N170$group)
+  grad_N170$intens = factor(grad_N170$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_N170$ROI = factor(grad_N170$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_N170$emotion) = contr.treatment(2)
+  contrasts(grad_N170$group) = contr.treatment(2)
+  contrasts(grad_N170$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_N170$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_N170 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_N170, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_N170_res = anova(mod_N170)
+  knitr::kable(mod_N170_res)  
+  
+# Examine interaction
+  int_emo_group = emmip(mod_N170, group ~ intens | emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_group
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ group | intens | emotion)
+  knitr::kable(emm_s.t$contrasts)  
+  
+  
+# Examine interaction
+  int_emo_roi = emmip(mod_N170, group ~ intens | ROI, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size =12)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_roi
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_roi_group_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ group | intens | ROI)
+  knitr::kable(emm_s.t$contrasts)    
+  
+  
+```
+
+
+### P3 w MO
+
+```{r LMM_grad_P3, results="asis", fig.width = 12}
+
+# Load data
+  grad_P3_amp_twent = read.delim("./data/grad_P3_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_fort = read.delim("./data/grad_P3_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_sixt = read.delim("./data/grad_P3_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_eigt = read.delim("./data/grad_P3_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_oneh = read.delim("./data/grad_P3_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_P3_amp_twent = read.delim("./data/grad_P3_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_fort = read.delim("./data/grad_P3_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_sixt = read.delim("./data/grad_P3_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_eigt = read.delim("./data/grad_P3_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_oneh = read.delim("./data/grad_P3_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+  
+# Add intensity
+  grad_P3_amp_twent = mutate(grad_P3_amp_twent, intens = "20%")
+  grad_P3_amp_fort = mutate(grad_P3_amp_fort, intens = "40%")
+  grad_P3_amp_sixt = mutate(grad_P3_amp_sixt, intens = "60%")
+  grad_P3_amp_eigt = mutate(grad_P3_amp_eigt, intens = "80%")
+  grad_P3_amp_oneh = mutate(grad_P3_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_P3 = rbind(grad_P3_amp_twent,grad_P3_amp_fort,grad_P3_amp_sixt,grad_P3_amp_eigt,grad_P3_amp_oneh)
+  
+# Recode emotion condition  
+  grad_P3 =  grad_P3 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_P3 = gather(grad_P3, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_P3$ROI = NA
+  grad_P3[grad_P3$elec == "PO7" | grad_P3$elec == "PO3" | grad_P3$elec == "P7" | grad_P3$elec == "PO9",]$ROI = "lOT"
+  grad_P3[grad_P3$elec == "PO8" | grad_P3$elec == "PO4" | grad_P3$elec == "P8" | grad_P3$elec == "PO10",]$ROI = "rOT"
+  grad_P3[grad_P3$elec == "O1" | grad_P3$elec == "Oz" | grad_P3$elec == "O2",]$ROI = "MO"
+  
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_P3$group = qn_data$group[match(grad_P3$ID,qn_data$ID,nomatch = NA)]
+  
+
+# Convert ID, group & emotion into factor variables
+  grad_P3$ID = factor(grad_P3$ID)
+  grad_P3$emotion = factor(grad_P3$emotion)
+  grad_P3$group = factor(grad_P3$group)
+  grad_P3$intens = factor(grad_P3$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P3$ROI = factor(grad_P3$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P3$emotion) = contr.treatment(2)
+  contrasts(grad_P3$group) = contr.treatment(2)
+  contrasts(grad_P3$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_P3$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_P3 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_P3, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P3_res = anova(mod_P3)
+  knitr::kable(mod_P3_res)  
+  
+# Examine interaction
+  int_emo_group = emmip(mod_P3, group ~ intens | emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_group
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ group | intens | emotion)
+  knitr::kable(emm_s.t$contrasts)  
+  
+  
+# Examine interaction
+  gr_emo_roi = emmip(mod_P3, emotion ~ group | ROI, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_emo_roi
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_roi_emo_gr.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ emotion | group | ROI)
+  knitr::kable(emm_s.t$contrasts)    
+  
+  
+  
+```

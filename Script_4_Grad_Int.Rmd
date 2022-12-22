@@ -1,0 +1,4388 @@
+---
+title: "grad-int"
+output: 
+  rmdformats::material:
+    highlight: kate
+    css: web_style.css
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    cards: true
+    self_contained: no
+    number_sections: no
+    code_folding: hide
+    fig_caption: yes
+---
+
+```{r setup, include = FALSE, message = FALSE, warning = FALSE}
+
+# Set general settings for Markdown file 
+  options(grad.print="75")
+
+  knitr::opts_chunk$set(echo=TRUE,
+  	             #cache=TRUE,
+                 prompt=FALSE,
+                 tidy=TRUE,
+                 comment=NA,
+                 message=FALSE,
+                 warning=FALSE,
+                 results = FALSE,
+  	             fig.align="center")
+  knitr::opts_knit$set(width=75)
+  
+# Load packages
+  library(afex)
+  library(corrplot)
+  library(cowplot)
+  library(dplyr)
+  library(eegUtils)
+  library(eeptools)
+  library(emmeans)
+  library(EnvStats)
+  library(ggplot2)
+  library(ggpmisc)
+  library(ggprism)
+  library(ggpubr)
+  library(ggstatsplot)
+  library(grid)
+  library(kableExtra)
+  library(lme4)
+  library(lmerTest)
+  library(miceadds)
+  library(multcomp)
+  library(pander)
+  library(plyr)
+  library(png)
+  library(Rmisc)
+  library(rstatix)
+  library(sjmisc)
+  library(sjPlot)
+  library(sjlabelled)
+  library(sjstats)
+  library(tidyr)
+
+# Swipe environment
+ rm(list=ls())  
+ 
+ 
+# Summarize data for plot
+data_summary = function(data, varname, groupnames){
+  require(plyr)
+  summary_func = function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      se = sd(x[[col]], na.rm=TRUE)/sqrt(length(x)))
+  }
+  data_sum=ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum = plyr::rename(data_sum, c("mean" = varname))
+ return(data_sum)
+} 
+
+options(scipen=999, digits=2)
+  
+```
+
+```{r load_data, include = FALSE}
+
+# Get z-score grand-averaged data for odd / harm for all electrodes
+  ga_z_score_chan = read.delim("./data/grad_ga_zscore_chan.txt", header = TRUE, sep = " ", dec = ".") 
+
+# Rename channel column
+  ga_z_score_chan = dplyr::rename(ga_z_score_chan, Channel = Row)
+  
+# Load frequency domain grad data for stats and plots
+  load.Rdata(filename="./data/grad_base_plot.Rdata", "grad_base_plot")
+  load.Rdata(filename="./data/grad_expr_plot.Rdata", "grad_expr_plot")  
+  load.Rdata(filename="./data/grad_base_stats.Rdata", "grad_base_stats")
+  load.Rdata(filename="./data/grad_expr_stats.Rdata", "grad_expr_stats")  
+  load.Rdata(filename="./data/grad_topo.Rdata", "grad_topo")
+  load.Rdata(filename="./data/grad_base_stats_pdi.Rdata", "grad_base_stats_pdi")
+  load.Rdata(filename="./data/grad_expr_stats_pdi.Rdata", "grad_expr_stats_pdi")  
+  
+# Exclude participants (high individual variability)
+  #grad_base_plot = subset(grad_base_plot, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  #grad_expr_plot = subset(grad_expr_plot, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  #grad_base_stats = subset(grad_base_stats, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  #grad_expr_stats = subset(grad_expr_stats, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  #grad_base_stats_pdi = subset(grad_base_stats_pdi, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  #grad_expr_stats_pdi = subset(grad_expr_stats_pdi, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+  
+  #grad_base_plot = subset(grad_base_plot, ID != "75")
+  #grad_expr_plot = subset(grad_expr_plot, ID != "75")
+  #grad_base_stats = subset(grad_base_stats, ID != "75")
+  #grad_expr_stats = subset(grad_expr_stats, ID != "75")
+  #grad_base_stats_pdi = subset(grad_base_stats_pdi, ID != "75")
+  #grad_expr_stats_pdi = subset(grad_expr_stats_pdi, ID != "75")
+
+# Get SNR values for all intensities 
+  ## 20 %
+
+snr_hap_twent = read.delim("./data/grad_snr_hap_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_twent$emotion = "happy"
+snr_hap_twent = gather(snr_hap_twent, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_twent = read.delim("./data/grad_snr_ang_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_twent$emotion = "angry"
+snr_ang_twent = gather(snr_ang_twent, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_twent = rbind(snr_hap_twent, snr_ang_twent)
+
+  #### ZE
+
+snr_hap_twent_ze = read.delim("./data/grad_snr_hap_ze_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_twent_ze$emotion = "happy"
+snr_hap_twent_ze = gather(snr_hap_twent_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_twent_ze = read.delim("./data/grad_snr_ang_ze_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_twent_ze$emotion = "angry"
+snr_ang_twent_ze = gather(snr_ang_twent_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_twent_ze = rbind(snr_hap_twent_ze, snr_ang_twent_ze)
+
+  #### CT
+
+snr_hap_twent_ct = read.delim("./data/grad_snr_hap_ct_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_twent_ct$emotion = "happy"
+snr_hap_twent_ct = gather(snr_hap_twent_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_twent_ct = read.delim("./data/grad_snr_ang_ct_twent.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_twent_ct$emotion = "angry"
+snr_ang_twent_ct = gather(snr_ang_twent_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_twent_ct = rbind(snr_hap_twent_ct, snr_ang_twent_ct)
+
+  ## 40 %
+
+snr_hap_fort = read.delim("./data/grad_snr_hap_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_fort$emotion = "happy"
+snr_hap_fort = gather(snr_hap_fort, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_fort = read.delim("./data/grad_snr_ang_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_fort$emotion = "angry"
+snr_ang_fort = gather(snr_ang_fort, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_fort = rbind(snr_hap_fort, snr_ang_fort)
+
+  #### ZE
+
+snr_hap_fort_ze = read.delim("./data/grad_snr_hap_ze_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_fort_ze$emotion = "happy"
+snr_hap_fort_ze = gather(snr_hap_fort_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_fort_ze = read.delim("./data/grad_snr_ang_ze_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_fort_ze$emotion = "angry"
+snr_ang_fort_ze = gather(snr_ang_fort_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_fort_ze = rbind(snr_hap_fort_ze, snr_ang_fort_ze)
+
+  #### CT
+
+snr_hap_fort_ct = read.delim("./data/grad_snr_hap_ct_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_fort_ct$emotion = "happy"
+snr_hap_fort_ct = gather(snr_hap_fort_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_fort_ct = read.delim("./data/grad_snr_ang_ct_fort.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_fort_ct$emotion = "angry"
+snr_ang_fort_ct = gather(snr_ang_fort_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_fort_ct = rbind(snr_hap_fort_ct, snr_ang_fort_ct)
+
+  ## 60 %
+
+snr_hap_sixt = read.delim("./data/grad_snr_hap_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_sixt$emotion = "happy"
+snr_hap_sixt = gather(snr_hap_sixt, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_sixt = read.delim("./data/grad_snr_ang_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_sixt$emotion = "angry"
+snr_ang_sixt = gather(snr_ang_sixt, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_sixt = rbind(snr_hap_sixt, snr_ang_sixt)
+
+  #### ZE
+
+snr_hap_sixt_ze = read.delim("./data/grad_snr_hap_ze_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_sixt_ze$emotion = "happy"
+snr_hap_sixt_ze = gather(snr_hap_sixt_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_sixt_ze = read.delim("./data/grad_snr_ang_ze_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_sixt_ze$emotion = "angry"
+snr_ang_sixt_ze = gather(snr_ang_sixt_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_sixt_ze = rbind(snr_hap_sixt_ze, snr_ang_sixt_ze)
+
+  #### CT
+
+snr_hap_sixt_ct = read.delim("./data/grad_snr_hap_ct_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_sixt_ct$emotion = "happy"
+snr_hap_sixt_ct = gather(snr_hap_sixt_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_sixt_ct = read.delim("./data/grad_snr_ang_ct_sixt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_sixt_ct$emotion = "angry"
+snr_ang_sixt_ct = gather(snr_ang_sixt_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_sixt_ct = rbind(snr_hap_sixt_ct, snr_ang_sixt_ct)
+
+  ## 80 %
+
+snr_hap_eigt = read.delim("./data/grad_snr_hap_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_eigt$emotion = "happy"
+snr_hap_eigt = gather(snr_hap_eigt, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_eigt = read.delim("./data/grad_snr_ang_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_eigt$emotion = "angry"
+snr_ang_eigt = gather(snr_ang_eigt, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_eigt = rbind(snr_hap_eigt, snr_ang_eigt)
+
+  #### ZE
+
+snr_hap_eigt_ze = read.delim("./data/grad_snr_hap_ze_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_eigt_ze$emotion = "happy"
+snr_hap_eigt_ze = gather(snr_hap_eigt_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_eigt_ze = read.delim("./data/grad_snr_ang_ze_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_eigt_ze$emotion = "angry"
+snr_ang_eigt_ze = gather(snr_ang_eigt_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_eigt_ze = rbind(snr_hap_eigt_ze, snr_ang_eigt_ze)
+
+  #### CT
+
+snr_hap_eigt_ct = read.delim("./data/grad_snr_hap_ct_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_eigt_ct$emotion = "happy"
+snr_hap_eigt_ct = gather(snr_hap_eigt_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_eigt_ct = read.delim("./data/grad_snr_ang_ct_eigt.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_eigt_ct$emotion = "angry"
+snr_ang_eigt_ct = gather(snr_ang_eigt_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_eigt_ct = rbind(snr_hap_eigt_ct, snr_ang_eigt_ct)
+
+  ## 100 %
+
+snr_hap_oneh = read.delim("./data/grad_snr_hap_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_oneh$emotion = "happy"
+snr_hap_oneh = gather(snr_hap_oneh, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_oneh = read.delim("./data/grad_snr_ang_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_oneh$emotion = "angry"
+snr_ang_oneh = gather(snr_ang_oneh, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_oneh = rbind(snr_hap_oneh, snr_ang_oneh)
+
+  #### ZE
+
+snr_hap_oneh_ze = read.delim("./data/grad_snr_hap_ze_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_oneh_ze$emotion = "happy"
+snr_hap_oneh_ze = gather(snr_hap_oneh_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_oneh_ze = read.delim("./data/grad_snr_ang_ze_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_oneh_ze$emotion = "angry"
+snr_ang_oneh_ze = gather(snr_ang_oneh_ze, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_oneh_ze = rbind(snr_hap_oneh_ze, snr_ang_oneh_ze)
+
+  #### CT
+
+snr_hap_oneh_ct = read.delim("./data/grad_snr_hap_ct_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_hap_oneh_ct$emotion = "happy"
+snr_hap_oneh_ct = gather(snr_hap_oneh_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+snr_ang_oneh_ct = read.delim("./data/grad_snr_ang_ct_oneh.txt", header = TRUE, sep = " ", dec = ".") 
+snr_ang_oneh_ct$emotion = "angry"
+snr_ang_oneh_ct = gather(snr_ang_oneh_ct, electrode, SNR, O1:PO10, factor_key=TRUE)
+
+grad_snr_oneh_ct = rbind(snr_hap_oneh_ct, snr_ang_oneh_ct)
+
+## Time domain
+  load.Rdata(filename="./data/grad_P1.Rdata", "grad_P1")
+  load.Rdata(filename="./data/grad_N170.Rdata", "grad_N170")
+  load.Rdata(filename="./data/grad_P3.Rdata", "grad_P3")
+  
+  
+## Exclude data
+ #grad_P1 = subset(grad_P1, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+ #grad_N170 = subset(grad_N170, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+ #grad_P3 = subset(grad_P3, ID != "16" & ID != "44" & ID != "48" & ID != "75")
+ 
+ #grad_P1 = subset(grad_P1, ID != "75")
+ #grad_N170 = subset(grad_N170, ID != "75")
+ #grad_P3 = subset(grad_P3, ID != "75")
+  
+```
+
+# Select ROIs {.tabset .tabset-pills}
+
+## Z-scores: Base response
+
+We examined grand-averaged Z-scores separated for base and expression change response (based on Leleu et al., 2018) to identify at which channel the FFT power was largest to decide for ROIs (blue indicates largest Z-scores):
+
+```{r table_ga_z_score_channel_base, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_base = ga_z_score_chan[, c(1,2)]
+  ga_z_score_base = ga_z_score_base[with(ga_z_score_base, order(-base)),]
+
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+# Mark channels with very large Z-scores for odd and base condition
+
+ga_z_score_base %>%
+  mutate(
+  base = cell_spec(base, "html", color = ifelse(base > 8, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+## Z-scores: Expression change response
+
+```{r table_ga_z_score_channel_expr, results = "asis"}
+
+# Separate and order for base and expression change response 
+  ga_z_score_expr = ga_z_score_chan [, c(1,3)]
+  ga_z_score_expr = ga_z_score_expr[with(ga_z_score_expr, order(-expr)),]
+
+
+ga_z_score_expr %>%
+  mutate(
+  expr = cell_spec(expr, "html", color = ifelse(expr > 4, "blue","black"))) %>%
+  kable(format = "html", escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover","responsive"), position = "center", font_size = 10, fixed_thead = TRUE)
+
+```
+
+
+# Frequency-domain analysis {.tabset}
+
+## Signal-to-noise-ratio
+
+### SNR by emotion
+
+```{r SNR_plot_hap_ang, results = "asis", fig.height = 4, fig.width = 10}
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+## 20 % intensity 
+  grad_snr_twent_hap = subset(grad_snr_twent, emotion == "happy")
+  snr_hap_twent = aggregate(SNR ~ freq + emotion,  grad_snr_twent_hap, mean)
+  
+  grad_snr_twent_ang = subset(grad_snr_twent, emotion == "angry")
+  snr_ang_twent = aggregate(SNR ~ freq + emotion,  grad_snr_twent_ang, mean)                     
+
+grad_twent_hap = ggplot() + 
+#ggtitle("20%")+
+geom_line(data=snr_ang_twent, aes(x=freq, y=SNR), color='#000000',size=1, alpha=0.8) + 
+geom_line(data=snr_hap_twent, aes(x=freq, y=SNR), color='#0098ff',size=1, alpha=0.8) + 
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 20) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_happy_angry.png", bg = "transparent", dpi = 300) 
+                                
+
+## 100% intensity
+  grad_snr_oneh_hap = subset(grad_snr_oneh, emotion == "happy")
+  snr_hap_oneh = aggregate(SNR ~ freq + emotion,  grad_snr_oneh_hap, mean)
+  
+  grad_snr_oneh_ang = subset(grad_snr_oneh, emotion == "angry")
+  snr_ang_oneh = aggregate(SNR ~ freq + emotion,  grad_snr_oneh_ang, mean)                     
+
+grad_oneh_hap = ggplot() + 
+#ggtitle("20%")+
+geom_line(data=snr_ang_oneh, aes(x=freq, y=SNR), color='#000000',size=1, alpha=0.8) + 
+geom_line(data=snr_hap_oneh, aes(x=freq, y=SNR), color='#0098ff',size=1, alpha=0.8) + 
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 20) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_oneh_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_happy_angry.png", bg = "transparent", dpi = 300) 
+  
+  
+    
+```
+
+```{r SNR_plot_hap_ang_zoom, results = "asis", fig.height = 4, fig.width = 8}
+
+lim_1 = 0.8
+lim_2 = 1.5
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+## 20 % intensity 
+  grad_snr_twent_hap = subset(grad_snr_twent, emotion == "happy")
+  snr_hap_twent = aggregate(SNR ~ freq + emotion,  grad_snr_twent_hap, mean)
+  
+  grad_snr_twent_ang = subset(grad_snr_twent, emotion == "angry")
+  snr_ang_twent = aggregate(SNR ~ freq + emotion,  grad_snr_twent_ang, mean)                     
+
+grad_twent_hap = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=grad_snr_twent_ang, aes(x=freq, y=SNR), color='#000000',size=1.5, alpha=0.8) + 
+geom_line(data=snr_hap_twent, aes(x=freq, y=SNR), color='#0098ff',size=1.5, alpha=0.8) + 
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 30) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_happy_angry_zoom.png", bg = "transparent", dpi = 300) 
+      
+
+## 100% intensity
+  grad_snr_oneh_hap = subset(grad_snr_oneh, emotion == "happy")
+  snr_hap_oneh = aggregate(SNR ~ freq + emotion,  grad_snr_oneh_hap, mean)
+  
+  grad_snr_oneh_ang = subset(grad_snr_oneh, emotion == "angry")
+  snr_ang_oneh = aggregate(SNR ~ freq + emotion,  grad_snr_oneh_ang, mean)                     
+
+
+grad_oneh_hap = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=grad_snr_oneh_ang, aes(x=freq, y=SNR), color='#000000',size=1.5, alpha=0.8) + 
+geom_line(data=snr_hap_oneh, aes(x=freq, y=SNR), color='#0098ff',size=1.5, alpha=0.8) + 
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 30) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_oneh_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_happy_angry_zoom.png", bg = "transparent", dpi = 300) 
+  
+  
+    
+```
+
+### SNR by group / emotion
+
+```{r SNR_plot_hap, results = "asis", fig.height = 8, eval = FALSE}
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+## 20 % intensity 
+  twent_snr_hap_ze = subset(grad_snr_twent_ze, emotion == "happy")
+  snr_hap_ze_twent = aggregate(SNR ~ freq + emotion,  twent_snr_hap_ze, mean)
+  
+  twent_snr_hap_ct = subset(grad_snr_twent_ct, emotion == "happy")
+  snr_hap_ct_twent = aggregate(SNR ~ freq + emotion,  twent_snr_hap_ct, mean)                            
+
+grad_twent_hap = ggplot() + 
+#ggtitle("20%")+
+geom_line(data=snr_hap_ze_twent, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_twent, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 80, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_twent, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_twent, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 80, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 25) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_happy.png", bg = "transparent", dpi = 300) 
+      
+## 40% intensity 
+
+  fort_snr_hap_ze = subset(grad_snr_fort_ze, emotion == "happy")
+  snr_hap_ze_fort = aggregate(SNR ~ freq + emotion,  fort_snr_hap_ze, mean)
+  
+  fort_snr_hap_ct = subset(grad_snr_fort_ct, emotion == "happy")
+  snr_hap_ct_fort = aggregate(SNR ~ freq + emotion,  fort_snr_hap_ct, mean)                            
+
+  grad_fort_hap = ggplot() + 
+  #ggtitle("40%")+
+  geom_line(data=snr_hap_ze_fort, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_hap_ze_fort, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 70, size = 2, stroke = 2) +
+  geom_line(data=snr_hap_ct_fort, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_hap_ct_fort, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 70, size = 2, stroke = 2) +
+  scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+  scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+  #xlab ( 'Frequency (Hz)') +  
+  ylab('')+
+  expand_limits(x = 0, y = 0)+
+  theme_prism(base_size = 14) +
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"),
+        panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA))
+
+## 70% intensity 
+
+  sixt_snr_hap_ze = subset(grad_snr_sixt_ze, emotion == "happy")
+  snr_hap_ze_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_hap_ze, mean)
+  
+  sixt_snr_hap_ct = subset(grad_snr_sixt_ct, emotion == "happy")
+  snr_hap_ct_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_hap_ct, mean)                            
+
+grad_sixt_hap = ggplot() + 
+#ggtitle("70%")+
+geom_line(data=snr_hap_ze_sixt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_sixt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 70, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_sixt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_sixt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 70, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 80 % intensity 
+
+  eigt_snr_hap_ze = subset(grad_snr_eigt_ze, emotion == "happy")
+  snr_hap_ze_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_hap_ze, mean)
+  
+  eigt_snr_hap_ct = subset(grad_snr_eigt_ct, emotion == "happy")
+  snr_hap_ct_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_hap_ct, mean)                            
+
+grad_eigt_hap = ggplot() + 
+#ggtitle("80%")+
+geom_line(data=snr_hap_ze_eigt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_eigt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 21, span = 70, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_eigt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_eigt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 21, span = 70, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 100% intensity
+
+  oneh_snr_hap_ze = subset(grad_snr_oneh_ze, emotion == "happy")
+  snr_hap_ze_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_hap_ze, mean)
+  
+  oneh_snr_hap_ct = subset(grad_snr_oneh_ct, emotion == "happy")
+  snr_hap_ct_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_hap_ct, mean)                            
+
+grad_oneh_hap = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=snr_hap_ze_oneh, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_oneh, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 70, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_oneh, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_oneh, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 70, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 25) +
+theme( plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+      #axis.title.x = element_blank())
+
+grad_oneh_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_happy.png", bg = "transparent", dpi = 300)  
+
+# Create legend
+
+# snr_leg = get_legend(ggplot(data = grad_snr_oneh, aes(y=SNR, x = freq, color = electrode))+
+#      geom_point(size = 2, shape = 21, stroke = 2)+
+#      scale_color_manual(values=c('gray39','#B3742E', '#8583D3'),
+#                        labels = c("Oz", "PO10 angry", "PO10 happy"),
+#                         name = "")+
+#      theme(panel.background = element_rect(fill = "transparent"),
+#      plot.background = element_rect(fill = "transparent", color = NA)))
+
+# Display plot  
+    snr_grad_sing_plots = cowplot::plot_grid(grad_twent_hap, grad_fort_hap, grad_sixt_hap, grad_eigt_hap, grad_oneh_hap, nrow = 5, rel_heights = c(1,1,1,1,1))
+    #snr_grad_w_leg =  cowplot::plot_grid(snr_grad_sing_plots, snr_leg, rel_widths = c(1.5, .5))
+    
+    snr_grad_sing_plots
+    
+# Save without white background
+  ggsave("./figures/SNR_grad_groups_happ.png", bg = "transparent", dpi = 300)      
+  
+  
+    
+```
+
+```{r SNR_plot_hap_zoom, results = "asis", fig.height = 8, eval = FALSE}
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+lim_1 = 0.8
+lim_2 = 1.5
+
+## 20 % intensity 
+  twent_snr_hap_ze = subset(grad_snr_twent_ze, emotion == "happy")
+  snr_hap_ze_twent = aggregate(SNR ~ freq + emotion,  twent_snr_hap_ze, mean)
+  
+  twent_snr_hap_ct = subset(grad_snr_twent_ct, emotion == "happy")
+  snr_hap_ct_twent = aggregate(SNR ~ freq + emotion,  twent_snr_hap_ct, mean)                            
+
+grad_twent_hap = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=snr_hap_ze_twent, aes(x=freq, y=SNR), color='#D97909',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_twent, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909", shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_twent, aes(x=freq, y=SNR), color='gray53',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_twent, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53", shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 50) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_happy_zoom.png", bg = "transparent", dpi = 300) 
+  
+## 40% intensity 
+
+  fort_snr_hap_ze = subset(grad_snr_fort_ze, emotion == "happy")
+  snr_hap_ze_fort = aggregate(SNR ~ freq + emotion,  fort_snr_hap_ze, mean)
+  
+  fort_snr_hap_ct = subset(grad_snr_fort_ct, emotion == "happy")
+  snr_hap_ct_fort = aggregate(SNR ~ freq + emotion,  fort_snr_hap_ct, mean)                            
+
+  grad_fort_hap = ggplot() + 
+#  ggtitle("40%")+
+  geom_line(data=snr_hap_ze_fort, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_hap_ze_fort, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 2, stroke = 2) +
+  geom_line(data=snr_hap_ct_fort, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_hap_ct_fort, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 2, stroke = 2) +
+  scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+  scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+  #xlab ( 'Frequency (Hz)') +  
+  ylab('')+
+  expand_limits(x = 0, y = 0)+
+  theme_prism(base_size = 14) +
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"),
+        panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA))
+
+## 60% intensity 
+
+  sixt_snr_hap_ze = subset(grad_snr_sixt_ze, emotion == "happy")
+  snr_hap_ze_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_hap_ze, mean)
+  
+  sixt_snr_hap_ct = subset(grad_snr_sixt_ct, emotion == "happy")
+  snr_hap_ct_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_hap_ct, mean)                            
+
+grad_sixt_hap = ggplot() + 
+#ggtitle("60%")+
+geom_line(data=snr_hap_ze_sixt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_sixt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 1, stroke = 1) +
+geom_line(data=snr_hap_ct_sixt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_sixt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 1, stroke = 1) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 80 % intensity 
+
+  eigt_snr_hap_ze = subset(grad_snr_eigt_ze, emotion == "happy")
+  snr_hap_ze_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_hap_ze, mean)
+  
+  eigt_snr_hap_ct = subset(grad_snr_eigt_ct, emotion == "happy")
+  snr_hap_ct_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_hap_ct, mean)                            
+
+grad_eigt_hap = ggplot() + 
+#ggtitle("80%")+
+geom_line(data=snr_hap_ze_eigt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_eigt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_eigt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_eigt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 100% intensity
+
+  oneh_snr_hap_ze = subset(grad_snr_oneh_ze, emotion == "happy")
+  snr_hap_ze_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_hap_ze, mean)
+  
+  oneh_snr_hap_ct = subset(grad_snr_oneh_ct, emotion == "happy")
+  snr_hap_ct_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_hap_ct, mean)                            
+
+grad_oneh_hap = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=snr_hap_ze_oneh, aes(x=freq, y=SNR), color='#D97909',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_hap_ze_oneh, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909", shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_hap_ct_oneh, aes(x=freq, y=SNR), color='gray53',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_hap_ct_oneh, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53", shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 50) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_oneh_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_happy_zoom.png", bg = "transparent", dpi = 300) 
+
+
+# Create legend
+
+# snr_leg = get_legend(ggplot(data = grad_snr_oneh, aes(y=SNR, x = freq, color = electrode))+
+#      geom_point(size = 2, shape = 21, stroke = 2)+
+#      scale_color_manual(values=c('gray39','#B3742E', '#8583D3'),
+#                        labels = c("Oz", "PO10 angry", "PO10 happy"),
+#                         name = "")+
+#      theme(panel.background = element_rect(fill = "transparent"),
+#      plot.background = element_rect(fill = "transparent", color = NA)))
+
+# Display plot  
+    snr_grad_sing_plots = cowplot::plot_grid(grad_twent_hap, grad_fort_hap, grad_sixt_hap,
+                                             grad_eigt_hap, grad_oneh_hap, nrow = 5, rel_heights = c(1,1,1,1,1))
+    #snr_grad_w_leg =  cowplot::plot_grid(snr_grad_sing_plots, snr_leg, rel_widths = c(1.5, .5))
+    
+    snr_grad_sing_plots
+    
+# Save without white background
+  ggsave("./figures/SNR_grad_groups_happy_zoom.png", bg = "transparent", dpi = 300)    
+    
+```
+
+```{r SNR_plot_ang, results = "asis", fig.height = 8, eval = FALSE}
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+## 20 % intensity 
+  twent_snr_ang_ze = subset(grad_snr_twent_ze, emotion == "angry")
+  snr_ang_ze_twent = aggregate(SNR ~ freq + emotion,  twent_snr_ang_ze, mean)
+  
+  twent_snr_ang_ct = subset(grad_snr_twent_ct, emotion == "angry")
+  snr_ang_ct_twent = aggregate(SNR ~ freq + emotion,  twent_snr_ang_ct, mean)                            
+
+grad_twent_ang = ggplot() + 
+#ggtitle("20%")+
+geom_line(data=snr_ang_ze_twent, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_twent, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 80, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_twent, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_twent, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 80, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 25) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_angry.png", bg = "transparent", dpi = 300) 
+  
+## 40% intensity 
+
+  fort_snr_ang_ze = subset(grad_snr_fort_ze, emotion == "angry")
+  snr_ang_ze_fort = aggregate(SNR ~ freq + emotion,  fort_snr_ang_ze, mean)
+  
+  fort_snr_ang_ct = subset(grad_snr_fort_ct, emotion == "angry")
+  snr_ang_ct_fort = aggregate(SNR ~ freq + emotion,  fort_snr_ang_ct, mean)                            
+
+  grad_fort_ang = ggplot() + 
+  #ggtitle("40%")+
+  geom_line(data=snr_ang_ze_fort, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_ang_ze_fort, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 70, size = 2, stroke = 2) +
+  geom_line(data=snr_ang_ct_fort, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_ang_ct_fort, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 70, size = 2, stroke = 2) +
+  scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+  scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+  #xlab ( 'Frequency (Hz)') +  
+  ylab('')+
+  expand_limits(x = 0, y = 0)+
+  theme_prism(base_size = 14) +
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"),
+        panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA))
+
+## 70% intensity 
+
+  sixt_snr_ang_ze = subset(grad_snr_sixt_ze, emotion == "angry")
+  snr_ang_ze_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_ang_ze, mean)
+  
+  sixt_snr_ang_ct = subset(grad_snr_sixt_ct, emotion == "angry")
+  snr_ang_ct_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_ang_ct, mean)                            
+
+grad_sixt_ang = ggplot() + 
+#ggtitle("70%")+
+geom_line(data=snr_ang_ze_sixt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_sixt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 70, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_sixt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_sixt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 70, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 80 % intensity 
+
+  eigt_snr_ang_ze = subset(grad_snr_eigt_ze, emotion == "angry")
+  snr_ang_ze_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_ang_ze, mean)
+  
+  eigt_snr_ang_ct = subset(grad_snr_eigt_ct, emotion == "angry")
+  snr_ang_ct_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_ang_ct, mean)                            
+
+grad_eigt_ang = ggplot() + 
+#ggtitle("80%")+
+geom_line(data=snr_ang_ze_eigt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_eigt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 21, span = 70, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_eigt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_eigt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 21, span = 70, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,1), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0,3.5), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 100% intensity
+
+  oneh_snr_ang_ze = subset(grad_snr_oneh_ze, emotion == "angry")
+  snr_ang_ze_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_ang_ze, mean)
+  
+  oneh_snr_ang_ct = subset(grad_snr_oneh_ct, emotion == "angry")
+  snr_ang_ct_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_ang_ct, mean)                            
+
+grad_oneh_ang = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=snr_ang_ze_oneh, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_oneh, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 80, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_oneh, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_oneh, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 80, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,19,6), limits = c(0.5,19), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(0.8,3.5), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 25) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_oneh_hap
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_angry.png", bg = "transparent", dpi = 300) 
+
+# Create legend
+
+# snr_leg = get_legend(ggplot(data = grad_snr_oneh, aes(y=SNR, x = freq, color = electrode))+
+#      geom_point(size = 2, shape = 21, stroke = 2)+
+#      scale_color_manual(values=c('gray39','#B3742E', '#8583D3'),
+#                        labels = c("Oz", "PO10 angry", "PO10 angry"),
+#                         name = "")+
+#      theme(panel.background = element_rect(fill = "transparent"),
+#      plot.background = element_rect(fill = "transparent", color = NA)))
+
+# Display plot  
+    snr_grad_sing_plots = cowplot::plot_grid(grad_twent_ang, grad_fort_ang, grad_sixt_ang, grad_eigt_ang, grad_oneh_ang, nrow = 5, rel_heights = c(1,1,1,1,1))
+    #snr_grad_w_leg =  cowplot::plot_grid(snr_grad_sing_plots, snr_leg, rel_widths = c(1.5, .5))
+    
+    snr_grad_sing_plots
+    
+```
+
+```{r SNR_plot_ang_zoom, results = "asis", fig.height = 8, eval = FALSE}
+
+# For the plot: # https://mran.microsoft.com/snapshot/2016-03-19/web/packages/ggspectra/vignettes/user-guide.html
+
+lim_1 = 0.8
+lim_2 = 1.5
+
+## 20 % intensity 
+  twent_snr_ang_ze = subset(grad_snr_twent_ze, emotion == "angry")
+  snr_ang_ze_twent = aggregate(SNR ~ freq + emotion,  twent_snr_ang_ze, mean)
+  
+  twent_snr_ang_ct = subset(grad_snr_twent_ct, emotion == "angry")
+  snr_ang_ct_twent = aggregate(SNR ~ freq + emotion,  twent_snr_ang_ct, mean)                            
+
+grad_twent_ang = ggplot() + 
+#ggtitle("20%")+
+geom_line(data=snr_ang_ze_twent, aes(x=freq, y=SNR), color='#D97909',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_twent, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_twent, aes(x=freq, y=SNR), color='gray53',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_twent, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 50) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_twent_ang
+
+# Save without white background
+  ggsave("./figures/SNR_grad_twent_angry_zoom.png", bg = "transparent", dpi = 300) 
+      
+## 40% intensity 
+
+  fort_snr_ang_ze = subset(grad_snr_fort_ze, emotion == "angry")
+  snr_ang_ze_fort = aggregate(SNR ~ freq + emotion,  fort_snr_ang_ze, mean)
+  
+  fort_snr_ang_ct = subset(grad_snr_fort_ct, emotion == "angry")
+  snr_ang_ct_fort = aggregate(SNR ~ freq + emotion,  fort_snr_ang_ct, mean)                            
+
+  grad_fort_ang = ggplot() + 
+#  ggtitle("40%")+
+  geom_line(data=snr_ang_ze_fort, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_ang_ze_fort, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 2, stroke = 2) +
+  geom_line(data=snr_ang_ct_fort, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+  stat_peaks(data=snr_ang_ct_fort, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 2, stroke = 2) +
+  scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+  scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+  #xlab ( 'Frequency (Hz)') +  
+  ylab('')+
+  expand_limits(x = 0, y = 0)+
+  theme_prism(base_size = 14) +
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"),
+        panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA))
+
+## 60% intensity 
+
+  sixt_snr_ang_ze = subset(grad_snr_sixt_ze, emotion == "angry")
+  snr_ang_ze_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_ang_ze, mean)
+  
+  sixt_snr_ang_ct = subset(grad_snr_sixt_ct, emotion == "angry")
+  snr_ang_ct_sixt = aggregate(SNR ~ freq + emotion,  sixt_snr_ang_ct, mean)                            
+
+grad_sixt_ang = ggplot() + 
+#ggtitle("60%")+
+geom_line(data=snr_ang_ze_sixt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_sixt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 1, stroke = 1) +
+geom_line(data=snr_ang_ct_sixt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_sixt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 1, stroke = 1) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 80 % intensity 
+
+  eigt_snr_ang_ze = subset(grad_snr_eigt_ze, emotion == "angry")
+  snr_ang_ze_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_ang_ze, mean)
+  
+  eigt_snr_ang_ct = subset(grad_snr_eigt_ct, emotion == "angry")
+  snr_ang_ct_eigt = aggregate(SNR ~ freq + emotion,  eigt_snr_ang_ct, mean)                            
+
+grad_eigt_ang = ggplot() + 
+#ggtitle("80%")+
+geom_line(data=snr_ang_ze_eigt, aes(x=freq, y=SNR), color='#D97909',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_eigt, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909",shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_eigt, aes(x=freq, y=SNR), color='gray53',size=1, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_eigt, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53",shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+#xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 14) +
+theme(axis.title.x = element_blank(),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+
+## 100% intensity
+
+  oneh_snr_ang_ze = subset(grad_snr_oneh_ze, emotion == "angry")
+  snr_ang_ze_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_ang_ze, mean)
+  
+  oneh_snr_ang_ct = subset(grad_snr_oneh_ct, emotion == "angry")
+  snr_ang_ct_oneh = aggregate(SNR ~ freq + emotion,  oneh_snr_ang_ct, mean)                            
+
+grad_oneh_ang = ggplot() + 
+#ggtitle("100%")+
+geom_line(data=snr_ang_ze_oneh, aes(x=freq, y=SNR), color='#D97909',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_ang_ze_oneh, aes(x=freq, y=SNR), colour = "#D97909", fill = "#D97909", shape = 19, span = 20, size = 2, stroke = 2) +
+geom_line(data=snr_ang_ct_oneh, aes(x=freq, y=SNR), color='gray53',size=1.5, alpha=0.8) + 
+stat_peaks(data=snr_ang_ct_oneh, aes(x=freq, y=SNR), colour = "gray53", fill = "gray53", shape = 19, span = 20, size = 2, stroke = 2) +
+scale_x_continuous(breaks=seq(0,8,1), limits = c(0.9,5), expand = c(0, 0), guide = guide_prism_minor())+
+scale_y_continuous(limits = c(lim_1,lim_2), guide = guide_prism_minor())+
+xlab ( 'Frequency (Hz)') +  
+ylab('')+
+expand_limits(x = 0, y = 0)+
+theme_prism(base_size = 50) +
+theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA))
+     # axis.title.x = element_blank())
+
+  grad_oneh_ang
+
+# Save without white background
+  ggsave("./figures/SNR_grad_oneh_angry_zoom.png", bg = "transparent", dpi = 300) 
+
+# Create legend
+
+# snr_leg = get_legend(ggplot(data = grad_snr_oneh, aes(y=SNR, x = freq, color = electrode))+
+#      geom_point(size = 2, shape = 21, stroke = 2)+
+#      scale_color_manual(values=c('gray39','#B3742E', '#8583D3'),
+#                        labels = c("Oz", "PO10 angry", "PO10 angry"),
+#                         name = "")+
+#      theme(panel.background = element_rect(fill = "transparent"),
+#      plot.background = element_rect(fill = "transparent", color = NA)))
+
+# Display plot  
+    snr_grad_sing_plots = cowplot::plot_grid(grad_twent_ang, grad_fort_ang, grad_sixt_ang,
+                                             grad_eigt_ang, grad_oneh_ang, nrow = 5, rel_heights = c(1,1,1,1,1))
+    #snr_grad_w_leg =  cowplot::plot_grid(snr_grad_sing_plots, snr_leg, rel_widths = c(1.5, .5))
+    
+    snr_grad_sing_plots
+    
+# Save without white background
+  ggsave("./figures/SNR_grad_groups_angry_zoom.png", bg = "transparent", dpi = 300)
+    
+```
+
+
+
+## BCA {.tabset .tabset-pills}
+
+### Base response {.tabset .tabset-pills}
+
+#### Visualization 
+
+```{r BCA_base_resp_plot_emotions, results = "asis"}
+
+# Create data summary
+
+  grad_base_plot_prep = data_summary(grad_base_plot, varname="bca", groupnames=c("ROI", "emotion", "intens"))
+ # grad_base_plot_prep$bca = abs(grad_base_plot_prep$bca)
+  
+
+# Plot expr response differences for emotions
+  expr_plot = ggplot(grad_base_plot_prep, aes(x=intens, y=bca, fill = emotion)) +
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.2, position=position_dodge(.9))+
+            geom_bar(stat="identity", color="black", position=position_dodge())+
+            facet_wrap(~ ROI)+
+            labs(x = "", y = "BCA [uV]" )+
+            scale_fill_manual(values=c("#0098ff","#333333"))+
+            scale_y_continuous(limits = c(-0.1,1.5), guide = guide_prism_minor())+
+            theme_prism(base_size = 10)+
+            theme(legend.position="bottom")
+  
+  expr_plot
+  
+ ggsave("./figures/grad_base_emotion.png", bg = "transparent", dpi = 300)   
+    
+```
+
+#### LMM
+
+```{r LMM_grad_base, results = "asis"}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_base_lmm = grad_base_stats %>%
+  convert_as_factor(ID)
+
+  grad_base_lmm$emotion = factor(grad_base_lmm$emotion)
+  grad_base_lmm$group = factor(grad_base_lmm$group)
+  grad_base_lmm$intens = factor(grad_base_lmm$intens,levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_base_lmm$ROI = factor(grad_base_lmm$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_base_lmm$emotion) = contr.treatment(2)
+  contrasts(grad_base_lmm$group) = contr.treatment(2)
+  contrasts(grad_base_lmm$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_base_lmm$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_base_lmer = lmer(bca ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_base_lmm, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_base_lmer_res = anova_stats(mod_base_lmer)
+  mod_base_lmer_res = subset(mod_base_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_base_lmer_res = head(mod_base_lmer_res, - 1) 
+  knitr::kable(mod_base_lmer_res, format = 'markdown')
+  
+# Post-hoc tests
+  m.roi = emmeans(mod_base_lmer, "ROI")
+
+  ROI = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(ROI)
+  
+  m.intens = emmeans(mod_base_lmer, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')
+  
+  
+  # Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_base_lmer, pairwise ~ group | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+
+```
+
+### Expression change response {.tabset .tabset-pills}
+
+#### Visualization
+
+
+```{r BCA_expr_resp_plot_emotions, results = "asis"}
+
+# Create data summary
+
+  grad_expr_plot_prep = data_summary(grad_expr_plot, varname="bca", groupnames=c("ROI", "emotion", "intens"))
+ # grad_expr_plot_prep$bca = abs(grad_expr_plot_prep$bca)
+  
+
+# Plot expr response differences for emotions
+  expr_plot = ggplot(grad_expr_plot_prep, aes(x=intens, y=bca, fill = emotion)) +
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.2, position=position_dodge(.9))+
+            geom_bar(stat="identity", color="black", position=position_dodge())+
+            facet_wrap(~ ROI)+
+            labs(x = "", y = "BCA [uV]" )+
+            scale_fill_manual(values=c("#0098ff","#333333"))+
+            scale_y_continuous(limits = c(-0.1,1.5), guide = guide_prism_minor())+
+            theme_prism(base_size = 10)+
+            theme(legend.position="bottom")
+  
+  expr_plot
+  
+ ggsave("./figures/grad_expr_emotion.png", bg = "transparent", dpi = 300)   
+    
+```
+
+```{r BCA_expr_resp_plot_groups, results = "asis", eval = FALSE}
+
+# Create data summary
+
+  grad_expr_plot_prep = data_summary(grad_expr_plot, varname="bca", groupnames=c("ROI", "emotion", "intens","group"))
+ # grad_expr_plot_prep$bca = abs(grad_expr_plot_prep$bca)
+  
+
+# Plot expr response differences for emotions
+  expr_plot = ggplot(grad_expr_plot_prep, aes(x=intens, y=bca, fill=group)) +
+            geom_errorbar(aes(ymin=bca, ymax=bca+se), width=.2, position=position_dodge(.9))+
+            geom_bar(stat="identity", color="black", position=position_dodge())+
+            facet_wrap(~ emotion + ROI)+
+            labs(x = "", y = "BCA [uV]" )+
+            scale_fill_manual(values=c('gray53','#D97909'))+
+            scale_y_continuous(limits = c(-1,1.5), guide = guide_prism_minor())+
+            theme_prism(base_size = 10)+
+            theme(legend.position="bottom")
+  
+  expr_plot
+  
+ ggsave("./figures/grad_expr_groups.png", bg = "transparent", dpi = 300)   
+    
+```
+
+```{r BCA_expr_resp_topo_hap, results = "asis"}
+
+lim_1 = -1
+lim_2 = 1.3
+
+# Subset for expr 
+  grad_topo_expr = subset(grad_topo, manip == "expr")
+
+  #grad_topo_expr$amplitude = abs(grad_topo_expr$amplitude)
+    
+# Subset for emotions
+  grad_topo_expr_hap = subset(grad_topo_expr, emotion == "happy")
+    
+# Add montage
+  grad_topo_expr_hap = electrode_locations(grad_topo_expr_hap, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_expr_hap_twent = subset(grad_topo_expr_hap, intens == "20%")
+  
+  topo_hap_expr_twent = ggplot(grad_topo_expr_hap_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_hap_expr_twent
+  
+  ggsave("./figures/grad_expr_hap_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_expr_hap_fort = subset(grad_topo_expr_hap, intens == "40%")
+  
+  topo_hap_expr_fort = ggplot(grad_topo_expr_hap_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_hap_expr_fort
+  
+  ggsave("./figures/grad_expr_hap_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_expr_hap_sixt = subset(grad_topo_expr_hap, intens == "60%")
+  
+  topo_hap_expr_sixt = ggplot(grad_topo_expr_hap_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_hap_expr_sixt
+  
+  ggsave("./figures/grad_expr_hap_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_expr_hap_eigt = subset(grad_topo_expr_hap, intens == "80%")
+  
+  topo_hap_expr_eigt = ggplot(grad_topo_expr_hap_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_hap_expr_eigt
+  
+  ggsave("./figures/grad_expr_hap_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_expr_hap_oneh = subset(grad_topo_expr_hap, intens == "100%")
+  
+  topo_hap_expr_oneh = ggplot(grad_topo_expr_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_hap_expr_oneh
+  
+  ggsave("./figures/grad_expr_hap_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_expr_hap_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_expr_hap_topo_legend.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+```{r BCA_expr_resp_topo_ang, results = "asis"}
+
+lim_1 = -0.3
+lim_2 = 3.5
+
+# Subset for base 
+  grad_topo_expr = subset(grad_topo, manip == "expr")
+  
+  grad_topo_expr$amplitude = abs(grad_topo_expr$amplitude)
+    
+# Subset for emotions
+  grad_topo_expr_ang = subset(grad_topo_expr, emotion == "angry")
+                     
+# Add montage
+  grad_topo_expr_ang = electrode_locations(grad_topo_expr_ang, electrode = "electrode",  drop = FALSE,
+                                          montage = NULL)
+  
+# 20 %
+  grad_topo_expr_ang_twent = subset(grad_topo_expr_ang, intens == "20%")
+  
+  topo_ang_expr_twent = ggplot(grad_topo_expr_ang_twent, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_ang_expr_twent
+  
+  ggsave("./figures/grad_expr_ang_twent.png", bg = "transparent", dpi = 300) 
+  
+# 40 %
+  grad_topo_expr_ang_fort = subset(grad_topo_expr_ang, intens == "40%")
+  
+  topo_ang_expr_fort = ggplot(grad_topo_expr_ang_fort, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_ang_expr_fort
+  
+  ggsave("./figures/grad_expr_ang_fort.png", bg = "transparent", dpi = 300)   
+  
+# 60 %
+  grad_topo_expr_ang_sixt = subset(grad_topo_expr_ang, intens == "60%")
+  
+  topo_ang_expr_sixt = ggplot(grad_topo_expr_ang_sixt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_ang_expr_sixt
+  
+  ggsave("./figures/grad_expr_ang_sixt.png", bg = "transparent", dpi = 300)     
+  
+# 80 %
+  grad_topo_expr_ang_eigt = subset(grad_topo_expr_ang, intens == "80%")
+  
+  topo_ang_expr_eigt = ggplot(grad_topo_expr_ang_eigt, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_ang_expr_eigt
+  
+  ggsave("./figures/grad_expr_ang_eigt.png", bg = "transparent", dpi = 300)       
+    
+  
+  
+# 100 %
+  grad_topo_expr_ang_oneh = subset(grad_topo_expr_ang, intens == "100%")
+  
+  topo_ang_expr_oneh = ggplot(grad_topo_expr_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    #ggtitle("happy")+
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)")))+
+                    theme(legend.position = "none")#+
+                    #facet_grid(~group)
+
+  topo_ang_expr_oneh
+  
+  ggsave("./figures/grad_expr_ang_oneh.png", bg = "transparent", dpi = 300)       
+  
+  
+# Get legend 
+    topo_leg = get_legend(ggplot(grad_topo_expr_ang_oneh, aes(x = x, y = y, fill = amplitude, label = electrode)) +
+                    geom_topo(grid_res = 300, interp_limit = "head", chan_markers = "point", chan_size = 2,
+                              head_size = 1.6) + 
+                    scale_fill_distiller(palette = "RdBu" , limits = c(lim_1,lim_2)) + 
+                    theme_void() + 
+                    coord_equal() + 
+                    labs(fill = expression(paste("BCA (", mu,"V)"))))  
+
+  ggsave("./figures/grad_expr_ang_topo_legend.png", topo_leg, bg = "transparent", dpi = 300)     
+      
+```
+
+#### LMM
+
+```{r LMM_grad_expr, results = "asis"}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_expr_lmm = grad_expr_stats %>%
+  convert_as_factor(ID)
+
+  grad_expr_lmm$emotion = factor(grad_expr_lmm$emotion)
+  grad_expr_lmm$group = factor(grad_expr_lmm$group)
+  grad_expr_lmm$intens = factor(grad_expr_lmm$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_expr_lmm$ROI = factor(grad_expr_lmm$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_expr_lmm$emotion) = contr.treatment(2)
+  contrasts(grad_expr_lmm$group) = contr.treatment(2)
+  contrasts(grad_expr_lmm$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_expr_lmm$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_expr_lmer = lmer(bca ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_expr_lmm, control=lmerControl(calc.derivs = FALSE))  
+  
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_expr_lmer)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')
+  
+
+# Calculate and show post-hoc tests
+  m.intens = emmeans(mod_expr_lmer, "intens")
+
+  main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens, format = 'markdown')
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')
+  
+  m.roi = emmeans(mod_expr_lmer, "ROI")
+
+  ROI = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(ROI, format = 'markdown')
+  
+# https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html  
+  
+# Examine interaction
+  int_emo_int = emmip(mod_expr_lmer, emotion ~ intens,CIs =TRUE)+
+  scale_color_manual(values=c("#0098ff","#333333"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_int
+  
+  # Save without white background
+  ggsave("./figures/int_emo_int.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_expr_lmer, pairwise ~ emotion | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')
+
+  
+```
+
+## BCA with PDI {.tabset .tabset-pills}
+
+<!--- PDI = physical dissimilarity index --->
+
+### Base response
+
+```{r LMM_grad_base_pdi, results = "asis"}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_base_lmm_pdi = grad_base_stats_pdi %>%
+  convert_as_factor(ID)
+
+  grad_base_lmm_pdi$emotion = factor(grad_base_lmm_pdi$emotion)
+  grad_base_lmm_pdi$group = factor(grad_base_lmm_pdi$group)
+  grad_base_lmm_pdi$intens = factor(grad_base_lmm_pdi$intens,levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_base_lmm_pdi$ROI = factor(grad_base_lmm_pdi$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_base_lmm_pdi$emotion) = contr.treatment(2)
+  contrasts(grad_base_lmm_pdi$group) = contr.treatment(2)
+  contrasts(grad_base_lmm_pdi$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_base_lmm_pdi$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_base_lmer = lmer(bca ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_base_lmm_pdi, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_base_lmer_res = anova_stats(mod_base_lmer)
+  mod_base_lmer_res = subset(mod_base_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_base_lmer_res = head(mod_base_lmer_res, - 1) 
+  knitr::kable(mod_base_lmer_res, format = 'markdown')
+
+# Post-hoc tests
+  m.emo = emmeans(mod_base_lmer, "emotion")
+
+  emo = contrast(m.emo, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(emo, format = 'markdown')
+  
+  m.int = emmeans(mod_base_lmer, "intens")
+
+  int = contrast(m.int, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(int)
+  
+  m.intens = emmeans(mod_base_lmer, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')
+  
+
+  # Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_base_lmer, pairwise ~ group | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+
+```
+
+### Expression change response
+
+```{r LMM_grad_expr_pdi, results = "asis", fig.width = 10}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_expr_lmm_pdi = grad_expr_stats_pdi %>%
+  convert_as_factor(ID)
+
+  grad_expr_lmm_pdi$emotion = factor(grad_expr_lmm_pdi$emotion)
+  grad_expr_lmm_pdi$group = factor(grad_expr_lmm_pdi$group)
+  grad_expr_lmm_pdi$intens = factor(grad_expr_lmm_pdi$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_expr_lmm_pdi$ROI = factor(grad_expr_lmm_pdi$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_expr_lmm_pdi$emotion) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$group) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_expr_lmm_pdi$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_expr_lmer = lmer(bca ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_expr_lmm_pdi, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_expr_lmer)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')
+  
+# Calculate and show post-hoc tests
+  m.intens = emmeans(mod_expr_lmer, "intens")
+
+  main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens, format = 'markdown')
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')
+  
+  
+# https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html  
+  
+# Examine interaction
+  int_emo_int = emmip(mod_expr_lmer, group ~ intens | ROI ,CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_int
+  
+  # Save without white background
+  ggsave("./figures/int_group_roi.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_expr_lmer, pairwise ~ group | intens | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')
+  
+  
+   emmip(mod_expr_lmer, ROI ~ intens ,CIs =TRUE)+
+  scale_color_manual(values=c("#F87F75","#69E070","#75F8FF"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  
+```
+
+*Separated by group: ZE*
+
+```{r LMM_grad_expr_ZE_pdi, results = "asis", fig.width = 10}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_expr_lmm_pdi = grad_expr_stats_pdi %>%
+  convert_as_factor(ID)
+
+  grad_expr_lmm_pdi$emotion = factor(grad_expr_lmm_pdi$emotion)
+  grad_expr_lmm_pdi$group = factor(grad_expr_lmm_pdi$group)
+  grad_expr_lmm_pdi$intens = factor(grad_expr_lmm_pdi$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_expr_lmm_pdi$ROI = factor(grad_expr_lmm_pdi$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_expr_lmm_pdi$emotion) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$group) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_expr_lmm_pdi$intens) =  contr.treatment(5)
+  
+  grad_expr_lmm_pdi_ZE = subset (grad_expr_lmm_pdi, group == "ZE")
+    
+  
+# Build model                
+  mod_expr_lmer = lmer(bca ~ emotion*intens*ROI + (1|ID),
+                        data = grad_expr_lmm_pdi_ZE, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_expr_lmer)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_expr_lmer, pairwise ~ intens | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')
+  
+  emmip(mod_expr_lmer, ROI ~ intens ,CIs =TRUE)+
+  scale_color_manual(values=c("#F87F75","#69E070","#75F8FF"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  
+  
+  
+  grad_expr_lmm_ZE = subset (grad_expr_lmm, group == "ZE")  
+  
+# Build model                
+  mod_expr_lmer = lmer(bca ~ emotion*intens*ROI + (1|ID),
+                        data = grad_expr_lmm_ZE, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_expr_lmer)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')  
+  
+  
+  
+ emmip(mod_expr_lmer, ROI ~ intens ,CIs =TRUE)+
+  scale_color_manual(values=c("#F87F75","#69E070","#75F8FF"))+
+  theme_prism()+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_int  
+  
+```
+
+*Separated by group: CT*
+
+
+```{r LMM_grad_expr_CT_pdi, results = "asis", fig.width = 10}
+
+# https://benwhalley.github.io/just-enough-r/extending-traditional-rm-anova.html
+
+# Convert ID, group & emotion into factor variables
+  grad_expr_lmm_pdi = grad_expr_stats_pdi %>%
+  convert_as_factor(ID)
+
+  grad_expr_lmm_pdi$emotion = factor(grad_expr_lmm_pdi$emotion)
+  grad_expr_lmm_pdi$group = factor(grad_expr_lmm_pdi$group)
+  grad_expr_lmm_pdi$intens = factor(grad_expr_lmm_pdi$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_expr_lmm_pdi$ROI = factor(grad_expr_lmm_pdi$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_expr_lmm_pdi$emotion) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$group) = contr.treatment(2)
+  contrasts(grad_expr_lmm_pdi$ROI) = contr.treatment(3, base = 2)
+  contrasts(grad_expr_lmm_pdi$intens) =  contr.treatment(5)
+  
+  grad_expr_lmm_pdi_CT = subset (grad_expr_lmm_pdi, group == "CT")
+    
+  
+# Build model                
+  mod_expr_lmer = lmer(bca ~ emotion*intens*ROI + (1|ID),
+                        data = grad_expr_lmm_pdi_CT, control=lmerControl(calc.derivs = FALSE))  
+
+  
+# Calculate and print ANOVA
+  mod_expr_lmer_res = anova_stats(mod_expr_lmer)
+  mod_expr_lmer_res = subset(mod_expr_lmer_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_expr_lmer_res = head(mod_expr_lmer_res, - 1) 
+  knitr::kable(mod_expr_lmer_res, format = 'markdown')  
+  
+```
+
+
+# Time-domain analyses {.tabset}
+
+## Visualization {.tabset .tabset-pills}
+
+### ERP trajectory
+
+```{r grad_plot_ERPs, warning = FALSE, message = FALSE}
+
+# Load data
+  hap_twent_traj = read.delim("./data/grad_hap_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_fort_traj = read.delim("./data/grad_hap_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_sixt_traj = read.delim("./data/grad_hap_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_eigt_traj = read.delim("./data/grad_hap_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_oneh_traj = read.delim("./data/grad_hap_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  hap_twent_traj$emotion = "happy"
+  hap_fort_traj$emotion = "happy"
+  hap_sixt_traj$emotion = "happy"
+  hap_eigt_traj$emotion = "happy"
+  hap_oneh_traj$emotion = "happy"
+
+# Add intensity
+  hap_twent_traj$int = "20%"
+  hap_fort_traj$int = "40%"
+  hap_sixt_traj$int = "60%"
+  hap_eigt_traj$int = "80%"
+  hap_oneh_traj$int = "100%"
+
+# Combine data sets
+  hap_traj = rbind(hap_twent_traj,hap_fort_traj,hap_sixt_traj,hap_eigt_traj,hap_oneh_traj)
+
+  hap_traj$int = factor(hap_traj$int, levels=c("20%","40%","60%","80%","100%"))
+  
+  
+# Load data
+  ang_twent_traj = read.delim("./data/grad_ang_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_fort_traj = read.delim("./data/grad_ang_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_sixt_traj = read.delim("./data/grad_ang_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_eigt_traj = read.delim("./data/grad_ang_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_oneh_traj = read.delim("./data/grad_ang_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  ang_twent_traj$emotion = "angry"
+  ang_fort_traj$emotion = "angry"
+  ang_sixt_traj$emotion = "angry"
+  ang_eigt_traj$emotion = "angry"
+  ang_oneh_traj$emotion = "angry"
+
+# Add intensity
+  ang_twent_traj$int = "20%"
+  ang_fort_traj$int = "40%"
+  ang_sixt_traj$int = "60%"
+  ang_eigt_traj$int = "80%"
+  ang_oneh_traj$int = "100%"
+
+# Combine data sets
+  ang_traj = rbind(ang_twent_traj,ang_fort_traj,ang_sixt_traj,ang_eigt_traj,ang_oneh_traj)
+
+  ang_traj$int = factor(ang_traj$int, levels=c("20%","40%","60%","80%","100%"))
+
+# Select lOT electrodes and average across electrodes
+  grad_lOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_hap = data.frame(ID=grad_lOT_hap [,1], time=grad_lOT_hap [,2], int=grad_lOT_hap [,3], emotion=grad_lOT_hap [,4], Means=rowMeans(grad_lOT_hap [,5:8]))
+  
+  
+  grad_lOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_ang = data.frame(ID=grad_lOT_ang[,1], time=grad_lOT_ang[,2], int=grad_lOT_ang[,3], emotion=grad_lOT_ang[,4], Means=rowMeans(grad_lOT_ang[,5:8]))
+  
+
+  
+  grad_lOT_av_hap$mean_emo = (grad_lOT_av_hap$Means+grad_lOT_av_ang$Means)/2
+
+
+# Plot data
+     lOT = ggplot(grad_lOT_av_hap,aes(time,mean_emo))+
+          ggtitle("lOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-2, 3),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 3,1))+
+          scale_x_continuous(breaks=seq(-167,667,167))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")
+
+     
+# Select rOT electrodes and average across electrodes
+  grad_rOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_hap = data.frame(ID=grad_rOT_hap[,1], time=grad_rOT_hap[,2], int=grad_rOT_hap[,3], emotion=grad_rOT_hap[,4], Means=rowMeans(grad_rOT_hap[,5:8]))
+  
+  
+  grad_rOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_ang = data.frame(ID=grad_rOT_ang[,1], time=grad_rOT_ang[,2], int=grad_rOT_ang[,3], emotion=grad_rOT_ang[,4], Means=rowMeans(grad_rOT_ang[,5:8]))
+  
+
+  
+  grad_rOT_av_hap$mean_emo = (grad_rOT_av_hap$Means+grad_rOT_av_ang$Means)/2
+       
+         
+ # Plot data    
+      rOT = ggplot(grad_rOT_av_hap,aes(time,mean_emo))+
+          ggtitle("rOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-2, 3),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-2, 3,1))+
+          scale_x_continuous(breaks=seq(-167,667,167))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")
+
+# Select MO electrodes and average across electrodes
+  grad_MO_hap = subset(hap_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_hap = data.frame(ID=grad_MO_hap[,1], time=grad_MO_hap[,2], int=grad_MO_hap[,3], emotion=grad_MO_hap[,4], Means=rowMeans(grad_MO_hap[,5:7]))
+  
+  
+  grad_MO_ang = subset(ang_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_ang = data.frame(ID=grad_MO_ang[,1], time=grad_MO_ang[,2], int=grad_MO_ang[,3], emotion=grad_MO_ang[,4], Means=rowMeans(grad_MO_ang[,5:7]))
+  
+  grad_MO_av_hap$mean_emo = (grad_MO_av_hap$Means+grad_MO_av_ang$Means)/2
+       
+         
+ # Plot data    
+      MO = ggplot(grad_MO_av_hap,aes(time,mean_emo))+
+          ggtitle("MO") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-3, 2),xlim=c(-100,600)) +
+          scale_y_continuous(breaks=seq(-3, 2,1))+
+          scale_x_continuous(breaks=seq(-167,667,167))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")
+      
+    
+# Combine plots
+  erp_plots = cowplot::plot_grid(lOT, MO, rOT, nrow = 1)
+  erp_plots
+  
+```
+
+*Happy*
+
+```{r grad_plot_ERPs_happy, warning = FALSE, message = FALSE, fig.width= 10}
+
+# Load data
+  hap_twent_traj = read.delim("./data/grad_hap_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_fort_traj = read.delim("./data/grad_hap_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_sixt_traj = read.delim("./data/grad_hap_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_eigt_traj = read.delim("./data/grad_hap_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_oneh_traj = read.delim("./data/grad_hap_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  hap_twent_traj$emotion = "happy"
+  hap_fort_traj$emotion = "happy"
+  hap_sixt_traj$emotion = "happy"
+  hap_eigt_traj$emotion = "happy"
+  hap_oneh_traj$emotion = "happy"
+
+# Add intensity
+  hap_twent_traj$int = "20%"
+  hap_fort_traj$int = "40%"
+  hap_sixt_traj$int = "60%"
+  hap_eigt_traj$int = "80%"
+  hap_oneh_traj$int = "100%"
+
+# Combine data sets
+  hap_traj = rbind(hap_twent_traj,hap_fort_traj,hap_sixt_traj,hap_eigt_traj,hap_oneh_traj)
+
+  hap_traj$int = factor(hap_traj$int, levels=c("20%","40%","60%","80%","100%"))
+  
+  
+  # Load data
+  ang_twent_traj = read.delim("./data/grad_ang_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_fort_traj = read.delim("./data/grad_ang_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_sixt_traj = read.delim("./data/grad_ang_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_eigt_traj = read.delim("./data/grad_ang_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_oneh_traj = read.delim("./data/grad_ang_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  ang_twent_traj$emotion = "angry"
+  ang_fort_traj$emotion = "angry"
+  ang_sixt_traj$emotion = "angry"
+  ang_eigt_traj$emotion = "angry"
+  ang_oneh_traj$emotion = "angry"
+
+# Add intensity
+  ang_twent_traj$int = "20%"
+  ang_fort_traj$int = "40%"
+  ang_sixt_traj$int = "60%"
+  ang_eigt_traj$int = "80%"
+  ang_oneh_traj$int = "100%"
+
+# Combine data sets
+  ang_traj = rbind(ang_twent_traj,ang_fort_traj,ang_sixt_traj,ang_eigt_traj,ang_oneh_traj)
+
+  ang_traj$int = factor(ang_traj$int, levels=c("20%","40%","60%","80%","100%"))
+
+# Select lOT electrodes and average across electrodes
+  grad_lOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_hap = data.frame(ID=grad_lOT_hap [,1], time=grad_lOT_hap [,2], int=grad_lOT_hap [,3], emotion=grad_lOT_hap [,4], Means=rowMeans(grad_lOT_hap [,5:8]))
+  
+  
+  grad_lOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_ang = data.frame(ID=grad_lOT_ang[,1], time=grad_lOT_ang[,2],
+                               int=grad_lOT_ang[,3], emotion=grad_lOT_ang[,4], Means=rowMeans(grad_lOT_ang[,5:8]))
+  
+
+  
+  grad_lOT_av_hap$mean_emo = (grad_lOT_av_hap$Means+grad_lOT_av_ang$Means)/2
+
+
+# Plot data
+     lOT = ggplot(grad_lOT_av_hap,aes(time,Means))+
+          ggtitle("lOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+
+     
+# Select rOT electrodes and average across electrodes
+  grad_rOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_hap = data.frame(ID=grad_rOT_hap[,1], time=grad_rOT_hap[,2], int=grad_rOT_hap[,3], emotion=grad_rOT_hap[,4], Means=rowMeans(grad_rOT_hap[,5:8]))
+  
+  
+  grad_rOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_ang = data.frame(ID=grad_rOT_ang[,1], time=grad_rOT_ang[,2], int=grad_rOT_ang[,3], emotion=grad_rOT_ang[,4], Means=rowMeans(grad_rOT_ang[,5:8]))
+  
+
+  
+  grad_rOT_av_hap$mean_emo = (grad_rOT_av_hap$Means+grad_rOT_av_ang$Means)/2
+       
+         
+ # Plot data    
+      rOT = ggplot(grad_rOT_av_hap,aes(time,Means))+
+          ggtitle("rOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+
+# Select MO electrodes and average across electrodes
+  grad_MO_hap = subset(hap_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_hap = data.frame(ID=grad_MO_hap[,1], time=grad_MO_hap[,2], int=grad_MO_hap[,3], emotion=grad_MO_hap[,4], Means=rowMeans(grad_MO_hap[,5:7]))
+  
+  
+  grad_MO_ang = subset(ang_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_ang = data.frame(ID=grad_MO_ang[,1], time=grad_MO_ang[,2], int=grad_MO_ang[,3], emotion=grad_MO_ang[,4], Means=rowMeans(grad_MO_ang[,5:7]))
+  
+  grad_MO_av_hap$mean_emo = (grad_MO_av_hap$Means+grad_MO_av_ang$Means)/2
+       
+         
+ # Plot data    
+      MO = ggplot(grad_MO_av_hap,aes(time,Means))+
+          ggtitle("MO") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="right", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+      
+ MO     
+    ggsave("./figures/grad_MO_scale_happy.png", bg = "transparent", dpi = 300)       
+      
+    
+# Combine plots
+  erp_plots_hap = cowplot::plot_grid(lOT, MO, rOT, nrow = 1)
+  erp_plots_hap
+  
+  # Save without white background
+  ggsave("./figures/grad_erp_happy.png", bg = "transparent", dpi = 300)   
+  
+```
+
+*Angry*
+
+```{r grad_plot_ERPs_angry, warning = FALSE, message = FALSE, fig.width= 10}
+
+# Load data
+  hap_twent_traj = read.delim("./data/grad_hap_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_fort_traj = read.delim("./data/grad_hap_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_sixt_traj = read.delim("./data/grad_hap_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_eigt_traj = read.delim("./data/grad_hap_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  hap_oneh_traj = read.delim("./data/grad_hap_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  hap_twent_traj$emotion = "happy"
+  hap_fort_traj$emotion = "happy"
+  hap_sixt_traj$emotion = "happy"
+  hap_eigt_traj$emotion = "happy"
+  hap_oneh_traj$emotion = "happy"
+
+# Add intensity
+  hap_twent_traj$int = "20%"
+  hap_fort_traj$int = "40%"
+  hap_sixt_traj$int = "60%"
+  hap_eigt_traj$int = "80%"
+  hap_oneh_traj$int = "100%"
+
+# Combine data sets
+  hap_traj = rbind(hap_twent_traj,hap_fort_traj,hap_sixt_traj,hap_eigt_traj,hap_oneh_traj)
+
+  hap_traj$int = factor(hap_traj$int, levels=c("20%","40%","60%","80%","100%"))
+  
+  
+  # Load data
+  ang_twent_traj = read.delim("./data/grad_ang_twent_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_fort_traj = read.delim("./data/grad_ang_fort_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_sixt_traj = read.delim("./data/grad_ang_sixt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_eigt_traj = read.delim("./data/grad_ang_eigt_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+  ang_oneh_traj = read.delim("./data/grad_ang_oneh_erp_traj.txt", header = TRUE, sep = " ", dec = ".")
+
+# Add emotion condition
+  ang_twent_traj$emotion = "angry"
+  ang_fort_traj$emotion = "angry"
+  ang_sixt_traj$emotion = "angry"
+  ang_eigt_traj$emotion = "angry"
+  ang_oneh_traj$emotion = "angry"
+
+# Add intensity
+  ang_twent_traj$int = "20%"
+  ang_fort_traj$int = "40%"
+  ang_sixt_traj$int = "60%"
+  ang_eigt_traj$int = "80%"
+  ang_oneh_traj$int = "100%"
+
+# Combine data sets
+  ang_traj = rbind(ang_twent_traj,ang_fort_traj,ang_sixt_traj,ang_eigt_traj,ang_oneh_traj)
+
+  ang_traj$int = factor(ang_traj$int, levels=c("20%","40%","60%","80%","100%"))
+
+# Select lOT electrodes and average across electrodes
+  grad_lOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_hap = data.frame(ID=grad_lOT_hap [,1], time=grad_lOT_hap [,2], int=grad_lOT_hap [,3], emotion=grad_lOT_hap [,4], Means=rowMeans(grad_lOT_hap [,5:8]))
+  
+  
+  grad_lOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO7, P7, PO9, PO3))
+
+  grad_lOT_av_ang = data.frame(ID=grad_lOT_ang[,1], time=grad_lOT_ang[,2],
+                               int=grad_lOT_ang[,3], emotion=grad_lOT_ang[,4], Means=rowMeans(grad_lOT_ang[,5:8]))
+  
+
+  
+  grad_lOT_av_hap$mean_emo = (grad_lOT_av_hap$Means+grad_lOT_av_ang$Means)/2
+
+
+# Plot data
+     lOT = ggplot(grad_lOT_av_ang,aes(time,Means))+
+          ggtitle("lOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+
+     
+# Select rOT electrodes and average across electrodes
+  grad_rOT_hap = subset(hap_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_hap = data.frame(ID=grad_rOT_hap[,1], time=grad_rOT_hap[,2], int=grad_rOT_hap[,3], emotion=grad_rOT_hap[,4], Means=rowMeans(grad_rOT_hap[,5:8]))
+  
+  
+  grad_rOT_ang = subset(ang_traj, select=c(ID, time, int, emotion, PO8, P8, PO10, PO4))
+
+  grad_rOT_av_ang = data.frame(ID=grad_rOT_ang[,1], time=grad_rOT_ang[,2], int=grad_rOT_ang[,3], emotion=grad_rOT_ang[,4], Means=rowMeans(grad_rOT_ang[,5:8]))
+  
+
+  
+  grad_rOT_av_hap$mean_emo = (grad_rOT_av_hap$Means+grad_rOT_av_ang$Means)/2
+       
+         
+ # Plot data    
+      rOT = ggplot(grad_rOT_av_ang,aes(time,Means))+
+          ggtitle("rOT") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="bottom", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+
+# Select MO electrodes and average across electrodes
+  grad_MO_hap = subset(hap_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_hap = data.frame(ID=grad_MO_hap[,1], time=grad_MO_hap[,2], int=grad_MO_hap[,3], emotion=grad_MO_hap[,4], Means=rowMeans(grad_MO_hap[,5:7]))
+  
+  
+  grad_MO_ang = subset(ang_traj, select=c(ID, time, int, emotion, O1, O2, Oz))
+
+  grad_MO_av_ang = data.frame(ID=grad_MO_ang[,1], time=grad_MO_ang[,2], int=grad_MO_ang[,3], emotion=grad_MO_ang[,4], Means=rowMeans(grad_MO_ang[,5:7]))
+  
+  grad_MO_av_hap$mean_emo = (grad_MO_av_hap$Means+grad_MO_av_ang$Means)/2
+       
+         
+ # Plot data    
+      MO = ggplot(grad_MO_av_ang,aes(time,Means))+
+          ggtitle("MO") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid", aes(colour = int))+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          #scale_color_OkabeIto()+
+          scale_colour_manual(values = c("gray88","gray82","gray60","gray44","gray8"))+
+          #theme(axis.title.x=element_blank())+      # to turn of x-axis title
+          #theme(axis.title.y=element_blank())+      # to turn of y-axis title
+          #theme(text=element_text(family="Coves", face="bold", size=18))+
+          labs(x = "\ntime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme_prism(base_size = 15)+
+          theme(legend.position ="right", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"))+
+          coord_cartesian(ylim=c(-2,4),xlim=c(-100,500)) +
+          scale_y_continuous(breaks=seq(-2, 4, 1))+
+          scale_x_continuous(breaks=seq(-200,500,200))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")+
+          annotate("rect", xmin = 120, xmax = 200, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 220, xmax = 300, ymin = -2.5, ymax = 4, alpha = .2)+
+          annotate("rect", xmin = 350, xmax = 450, ymin = -2.5, ymax = 4, alpha = .2)
+      
+      MO
+      
+       ggsave("./figures/grad_MO_scale_angry.png", bg = "transparent", dpi = 300)       
+    
+# Combine plots
+  erp_plots_hap = cowplot::plot_grid(lOT, MO, rOT, nrow = 1)
+  erp_plots_hap
+  
+  # Save without white background
+  ggsave("./figures/grad_erp_angry.png", bg = "transparent", dpi = 300)   
+  
+```
+
+```{r grad_plot_grand_av, warning = FALSE, message = FALSE}
+
+## Average across all ROIs
+    grad_rOT_av_hap$avROI = (grad_lOT_av_hap$mean_emo + grad_rOT_av_hap$mean_emo + grad_MO_av_hap$mean_emo)/3
+
+## Average across intensities
+    grad_grand = aggregate(avROI ~ time + ID,  grad_rOT_av_hap, mean)                             
+                                     
+## Average across IDs
+    grad_grand_av = aggregate(avROI ~ time,  grad_grand, mean)
+ 
+## Draw grand average across ROI, emotion, intensity and IDs      
+    
+ ggplot(grad_grand_av,aes(time,avROI))+
+          ggtitle("Grand average") +
+          theme(panel.background = element_blank(), panel.border = element_rect(colour = "grey", fill=NA, size=2),
+                axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)), legend.text=element_text(size=7),
+                legend.key = element_rect(fill = "white"))+
+          stat_summary(fun.y = mean, geom = "line", size = 1, linetype = "solid")+
+          scale_color_discrete(guide = guide_legend(override.aes = list(color = "white")))+
+          labs(x = "\nTime (ms)",y = expression(paste("Amplitude [",mu,"V]")),colour = "")+
+          theme(legend.position="bottom") +
+          coord_cartesian(ylim=c(-1, 1),xlim=c(-160,600)) +
+          scale_y_continuous(breaks=seq(-1, 1, 1))+
+          scale_x_continuous(breaks=seq(-150,600,50))+
+          geom_vline(xintercept = 0, linetype = "dashed",colour="grey" )+
+          geom_hline(yintercept = 0, linetype = "dashed",colour="grey")     
+
+```
+
+```{r grad_get_amplitudes_for_tws, warning = FALSE, message = FALSE, eval = FALSE}
+ 
+#### Get grand-averaged P1/N170 peaks 
+ 
+  ## P1 
+   
+    # Get values between 80-120 ms
+     grad_av_P1 = subset(grad_grand_av, time > 80 & time < 120)
+    
+    # Get local gradimum in this time range
+     loc_max = which(grad_av_P1 == max(grad_av_P1$avROI), arr.ind=T)
+     
+    # Locate time for peak
+     peak_P1 = grad_av_P1$time[loc_max[1]]
+   
+  
+  ## N170 
+   
+    # Get values between 80-120 ms
+     grad_av_N170 = subset(grad_grand_av, time > 150 & time < 190)
+    
+    # Get local minimum in this time range
+     loc_min = which(grad_av_N170 == min(grad_av_N170$avROI), arr.ind=T)
+     
+    # Locate time for peak
+     peak_N170 = grad_av_N170$time[loc_min[1]]
+     
+     
+  ## P3
+   
+    # Get values between 300-400 ms
+     grad_grandav_P3 = subset(grad_grand_av, time > 300 & time < 400)
+    
+    # Get local maximum in this time range
+     loc_max = which(grad_grandav_P3 == max(grad_grandav_P3$avROI), arr.ind=T)
+     
+    # Locate time for peak
+     peak_P3 = grad_grandav_P3$time[loc_max[1]] 
+     
+   
+#### Get averaged amplitudes across emotion / electrodes of ROI for each participant (to select individual peak around grand-averaged peak)
+
+## Averaged across ROI/intensity/emotion but not ID 
+    grad_grand = aggregate(avROI ~ time + ID,  grad_rOT_av_hap, mean)    
+    
+
+## Averaged across emotion, but not ID or ROI       
+  grad_whole_indiv_time_hap = subset(hap_traj, select=c(ID, time, int, emotion, O1, PO7, P7, P9, O2, PO8, P8, P10))
+  
+  grad_whole_indiv_time_ang = subset(ang_traj, select=c(ID, time, int, emotion, O1, PO7, P7, P9, O2, PO8, P8, P10))
+  
+    
+  grad_whole_indiv_time = data.frame(ID = grad_whole_indiv_time_hap[,1],
+                                        time = grad_whole_indiv_time_hap[,2],
+                                        int = grad_whole_indiv_time_hap[,3])
+  
+  grad_whole_indiv_time$O1 = (grad_whole_indiv_time_hap$O1+grad_whole_indiv_time_ang$O1)/2
+  grad_whole_indiv_time$PO7 = (grad_whole_indiv_time_hap$PO7+grad_whole_indiv_time_ang$PO7)/2
+  grad_whole_indiv_time$P7 = (grad_whole_indiv_time_hap$P7+grad_whole_indiv_time_ang$P7)/2
+  grad_whole_indiv_time$P9 = (grad_whole_indiv_time_hap$P9+grad_whole_indiv_time_ang$P9)/2
+  grad_whole_indiv_time$O2 = (grad_whole_indiv_time_hap$O2+grad_whole_indiv_time_ang$O2)/2
+  grad_whole_indiv_time$PO8 = (grad_whole_indiv_time_hap$PO8+grad_whole_indiv_time_ang$PO8)/2
+  grad_whole_indiv_time$P8 = (grad_whole_indiv_time_hap$P8+grad_whole_indiv_time_ang$P8)/2
+  grad_whole_indiv_time$P10 = (grad_whole_indiv_time_hap$P10+grad_whole_indiv_time_ang$P10)/2
+
+    
+### Start loop to get mean amplitude for lOT and rOT around individual peak amplitude for each participant and emotion
+
+  ## P1    
+  
+      for (i in 1:47){
+      
+     # Get individual time series and values between +/- 10ms of P1 peak     
+      grad_indiv_time_ser_P1 = subset(grad_grand, ID == i & time > peak_P1-10 & time < peak_P1+10)
+      grad_indiv_time_ser_N170 = subset(grad_grand, ID == i & time > peak_N170-10 & time < peak_N170+10)
+      grad_indiv_time_ser_P3 = subset(grad_grand, ID == i & time > peak_P3-10 & time < peak_P3+10)
+
+     # Get time point for local maxima 
+      loc_max_P1 = which(grad_indiv_time_ser_P1 == max(grad_indiv_time_ser_P1$avROI), arr.ind=T)
+      loc_max_N170 = which(grad_indiv_time_ser_N170 == min(grad_indiv_time_ser_N170$avROI), arr.ind=T)
+      loc_max_P3 = which(grad_indiv_time_ser_P3 == max(grad_indiv_time_ser_P3$avROI), arr.ind=T)
+      
+    # Locate individual time point for peak ERP value 
+      peak_P1_indiv = grad_indiv_time_ser_P1$time[loc_max_P1[1]]
+      peak_N170_indiv = grad_indiv_time_ser_N170$time[loc_max_N170[1]]
+      peak_P3_indiv = grad_indiv_time_ser_P3$time[loc_max_P3[1]]
+
+      
+    # Separate for intensities  
+      grad_time_P1_twent = subset(grad_whole_indiv_time, int == "20%")
+      grad_time_P1_fort = subset(grad_whole_indiv_time, int == "40%")
+      grad_time_P1_sixt = subset(grad_whole_indiv_time, int == "60%")
+      grad_time_P1_eigt = subset(grad_whole_indiv_time, int == "80%")
+      grad_time_P1_oneh = subset(grad_whole_indiv_time, int == "100%")
+      
+      
+      grad_time_N170_twent = subset(grad_whole_indiv_time, int == "20%")
+      grad_time_N170_fort = subset(grad_whole_indiv_time, int == "40%")
+      grad_time_N170_sixt = subset(grad_whole_indiv_time, int == "60%")
+      grad_time_N170_eigt = subset(grad_whole_indiv_time, int == "80%")
+      grad_time_N170_oneh = subset(grad_whole_indiv_time, int == "100%")
+      
+      grad_time_P3_twent = subset(grad_whole_indiv_time, int == "20%")
+      grad_time_P3_fort = subset(grad_whole_indiv_time, int == "40%")
+      grad_time_P3_sixt = subset(grad_whole_indiv_time, int == "60%")
+      grad_time_P3_eigt = subset(grad_whole_indiv_time, int == "80%")
+      grad_time_P3_oneh = subset(grad_whole_indiv_time, int == "100%")
+      
+    # Get whole data set
+      grad_time_P1_twent_sel = subset(grad_time_P1_twent, ID == i & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      grad_time_P1_fort_sel = subset(grad_time_P1_fort, ID == i & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      grad_time_P1_sixt_sel = subset(grad_time_P1_sixt, ID == i & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      grad_time_P1_eigt_sel = subset(grad_time_P1_eigt, ID == i & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      grad_time_P1_oneh_sel = subset(grad_time_P1_oneh, ID == i & time > peak_P1_indiv-10 & time < peak_P1_indiv+10)
+      
+      grad_time_N170_twent_sel = subset(grad_time_N170_twent, ID == i & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      grad_time_N170_fort_sel = subset(grad_time_N170_fort, ID == i & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      grad_time_N170_sixt_sel = subset(grad_time_N170_sixt, ID == i & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      grad_time_N170_eigt_sel = subset(grad_time_N170_eigt, ID == i & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      grad_time_N170_oneh_sel = subset(grad_time_N170_oneh, ID == i & time > peak_N170_indiv-10 & time < peak_N170_indiv+10)
+      
+      grad_time_P3_twent_sel = subset(grad_time_P3_twent, ID == i & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+      grad_time_P3_fort_sel = subset(grad_time_P3_fort, ID == i & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+      grad_time_P3_sixt_sel = subset(grad_time_P3_sixt, ID == i & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+      grad_time_P3_eigt_sel = subset(grad_time_P3_eigt, ID == i & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+      grad_time_P3_oneh_sel = subset(grad_time_P3_oneh, ID == i & time > peak_P3_indiv-10 & time < peak_P3_indiv+10)
+  
+      
+    # Get mean per electrode  
+      grad_indiv_elec_P1_twent = colMeans(grad_time_P1_twent_sel[sapply(grad_time_P1_twent_sel, is.numeric)])
+      grad_indiv_elec_P1_fort = colMeans(grad_time_P1_fort_sel[sapply(grad_time_P1_fort_sel, is.numeric)])
+      grad_indiv_elec_P1_sixt = colMeans(grad_time_P1_sixt_sel[sapply(grad_time_P1_sixt_sel, is.numeric)])
+      grad_indiv_elec_P1_eigt = colMeans(grad_time_P1_eigt_sel[sapply(grad_time_P1_eigt_sel, is.numeric)])
+      grad_indiv_elec_P1_oneh = colMeans(grad_time_P1_oneh_sel[sapply(grad_time_P1_oneh_sel, is.numeric)])
+      
+      
+      grad_indiv_elec_N170_twent = colMeans(grad_time_N170_twent_sel[sapply(grad_time_N170_twent_sel, is.numeric)])
+      grad_indiv_elec_N170_fort = colMeans(grad_time_N170_fort_sel[sapply(grad_time_N170_fort_sel, is.numeric)])
+      grad_indiv_elec_N170_sixt = colMeans(grad_time_N170_sixt_sel[sapply(grad_time_N170_sixt_sel, is.numeric)])
+      grad_indiv_elec_N170_eigt = colMeans(grad_time_N170_eigt_sel[sapply(grad_time_N170_eigt_sel, is.numeric)])
+      grad_indiv_elec_N170_oneh = colMeans(grad_time_N170_oneh_sel[sapply(grad_time_N170_oneh_sel, is.numeric)])
+      
+      grad_indiv_elec_P3_twent = colMeans(grad_time_P3_twent_sel[sapply(grad_time_P3_twent_sel, is.numeric)])
+      grad_indiv_elec_P3_fort = colMeans(grad_time_P3_fort_sel[sapply(grad_time_P3_fort_sel, is.numeric)])
+      grad_indiv_elec_P3_sixt = colMeans(grad_time_P3_sixt_sel[sapply(grad_time_P3_sixt_sel, is.numeric)])
+      grad_indiv_elec_P3_eigt = colMeans(grad_time_P3_eigt_sel[sapply(grad_time_P3_eigt_sel, is.numeric)])
+      grad_indiv_elec_P3_oneh = colMeans(grad_time_P3_oneh_sel[sapply(grad_time_P3_oneh_sel, is.numeric)])
+      
+    
+    # Get mean for each ROI 
+  
+    grad_ROI_P1_twent = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P1_twent[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P1_twent[7:10]))
+      
+    grad_ROI_P1_fort = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P1_fort[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P1_fort[7:10]))
+      
+    grad_ROI_P1_sixt = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P1_sixt[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P1_sixt[7:10]))
+      
+    grad_ROI_P1_eigt = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P1_eigt[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P1_eigt[7:10]))
+      
+    grad_ROI_P1_oneh = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P1_oneh[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P1_oneh[7:10]))
+     
+     
+     
+    grad_ROI_N170_twent = data.frame(ID = i,
+                                   lOT = mean(grad_indiv_elec_N170_twent[3:6]), 
+                                   rOT =  mean(grad_indiv_elec_N170_twent[7:10]))
+  
+    grad_ROI_N170_fort = data.frame(ID = i,
+                                  lOT = mean(grad_indiv_elec_N170_fort[3:6]), 
+                                  rOT =  mean(grad_indiv_elec_N170_fort[7:10]))
+  
+    grad_ROI_N170_sixt = data.frame(ID = i,
+                                  lOT = mean(grad_indiv_elec_N170_sixt[3:6]), 
+                                  rOT =  mean(grad_indiv_elec_N170_sixt[7:10]))
+  
+    grad_ROI_N170_eigt = data.frame(ID = i,
+                                  lOT = mean(grad_indiv_elec_N170_eigt[3:6]), 
+                                  rOT =  mean(grad_indiv_elec_N170_eigt[7:10]))
+  
+    grad_ROI_N170_oneh = data.frame(ID = i,
+                                  lOT = mean(grad_indiv_elec_N170_oneh[3:6]), 
+                                  rOT =  mean(grad_indiv_elec_N170_oneh[7:10]))
+    
+  
+    grad_ROI_P3_twent = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P3_twent[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P3_twent[7:10]))
+      
+    grad_ROI_P3_fort = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P3_fort[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P3_fort[7:10]))
+      
+    grad_ROI_P3_sixt = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P3_sixt[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P3_sixt[7:10]))
+      
+    grad_ROI_P3_eigt = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P3_eigt[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P3_eigt[7:10]))
+      
+    grad_ROI_P3_oneh = data.frame(ID = i,
+                                          lOT = mean(grad_indiv_elec_P3_oneh[3:6]), 
+                                          rOT =  mean(grad_indiv_elec_P3_oneh[7:10]))
+
+# Combine data    
+      
+      if (i == 1) {
+      
+      grad_mean_amp_P1_twent = grad_ROI_P1_twent
+      grad_mean_amp_P1_fort = grad_ROI_P1_fort
+      grad_mean_amp_P1_sixt = grad_ROI_P1_sixt
+      grad_mean_amp_P1_eigt = grad_ROI_P1_eigt
+      grad_mean_amp_P1_oneh = grad_ROI_P1_oneh
+      
+      grad_mean_amp_N170_twent = grad_ROI_N170_twent
+      grad_mean_amp_N170_fort = grad_ROI_N170_fort
+      grad_mean_amp_N170_sixt = grad_ROI_N170_sixt
+      grad_mean_amp_N170_eigt = grad_ROI_N170_eigt
+      grad_mean_amp_N170_oneh = grad_ROI_N170_oneh
+      
+      grad_mean_amp_P3_twent = grad_ROI_P3_twent
+      grad_mean_amp_P3_fort = grad_ROI_P3_fort
+      grad_mean_amp_P3_sixt = grad_ROI_P3_sixt
+      grad_mean_amp_P3_eigt = grad_ROI_P3_eigt
+      grad_mean_amp_P3_oneh = grad_ROI_P3_oneh
+      
+      
+      } else {
+      
+      grad_mean_amp_P1_twent  = rbind(grad_mean_amp_P1_twent, grad_ROI_P1_twent)
+      grad_mean_amp_P1_fort  = rbind(grad_mean_amp_P1_fort, grad_ROI_P1_fort)
+      grad_mean_amp_P1_sixt  = rbind(grad_mean_amp_P1_sixt, grad_ROI_P1_sixt)
+      grad_mean_amp_P1_eigt  = rbind(grad_mean_amp_P1_eigt, grad_ROI_P1_eigt)
+      grad_mean_amp_P1_oneh  = rbind(grad_mean_amp_P1_oneh, grad_ROI_P1_oneh)
+      
+      grad_mean_amp_N170_twent  = rbind(grad_mean_amp_N170_twent, grad_ROI_N170_twent)
+      grad_mean_amp_N170_fort  = rbind(grad_mean_amp_N170_fort, grad_ROI_N170_fort)
+      grad_mean_amp_N170_sixt  = rbind(grad_mean_amp_N170_sixt, grad_ROI_N170_sixt)
+      grad_mean_amp_N170_eigt  = rbind(grad_mean_amp_N170_eigt, grad_ROI_N170_eigt)
+      grad_mean_amp_N170_oneh  = rbind(grad_mean_amp_N170_oneh, grad_ROI_N170_oneh)
+      
+      grad_mean_amp_P3_twent  = rbind(grad_mean_amp_P3_twent, grad_ROI_P3_twent)
+      grad_mean_amp_P3_fort  = rbind(grad_mean_amp_P3_fort, grad_ROI_P3_fort)
+      grad_mean_amp_P3_sixt  = rbind(grad_mean_amp_P3_sixt, grad_ROI_P3_sixt)
+      grad_mean_amp_P3_eigt  = rbind(grad_mean_amp_P3_eigt, grad_ROI_P3_eigt)
+      grad_mean_amp_P3_oneh  = rbind(grad_mean_amp_P3_oneh, grad_ROI_P3_oneh)
+    
+
+      }
+      
+      }
+      
+    
+ # Add intensity info 
+    grad_mean_amp_P1_twent$int = "20%" 
+    grad_mean_amp_P1_fort$int = "40%" 
+    grad_mean_amp_P1_sixt$int = "60%" 
+    grad_mean_amp_P1_eigt$int = "80%" 
+    grad_mean_amp_P1_oneh$int = "100%" 
+     
+    grad_mean_amp_N170_twent$int = "20%" 
+    grad_mean_amp_N170_fort$int = "40%" 
+    grad_mean_amp_N170_sixt$int = "60%" 
+    grad_mean_amp_N170_eigt$int = "80%" 
+    grad_mean_amp_N170_oneh$int = "100%" 
+    
+    grad_mean_amp_P3_twent$int = "20%" 
+    grad_mean_amp_P3_fort$int = "40%" 
+    grad_mean_amp_P3_sixt$int = "60%" 
+    grad_mean_amp_P3_eigt$int = "80%" 
+    grad_mean_amp_P3_oneh$int = "100%" 
+
+  
+ # Bring intensities together    
+      
+  grad_mean_amp_P1 = rbind(grad_mean_amp_P1_twent,grad_mean_amp_P1_fort,grad_mean_amp_P1_sixt,grad_mean_amp_P1_eigt,grad_mean_amp_P1_oneh)
+  grad_mean_amp_N170 = rbind(grad_mean_amp_N170_twent,grad_mean_amp_N170_fort,grad_mean_amp_N170_sixt,grad_mean_amp_N170_eigt,grad_mean_amp_N170_oneh)
+  grad_mean_amp_P3 = rbind(grad_mean_amp_P3_twent,grad_mean_amp_P3_fort,grad_mean_amp_P3_sixt,grad_mean_amp_P3_eigt,grad_mean_amp_P3_oneh)
+
+      
+
+```
+
+<br>
+
+### ERP line plot
+
+```{r grad_line_P1_hap, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for happy lOT at 20/40/60/80/100%
+  grad_P1_lOT_20 = subset(grad_P1, emotion == "happy" & ROI == "lOT"  & intens == "20%")
+  grad_P1_lOT_20 =
+      grad_P1_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_40 = subset(grad_P1, emotion == "happy" & ROI == "lOT"  & intens == "40%")
+  grad_P1_lOT_40 =
+      grad_P1_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_60 = subset(grad_P1, emotion == "happy" & ROI == "lOT"  & intens == "60%")
+  grad_P1_lOT_60 =
+      grad_P1_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_80 = subset(grad_P1, emotion == "happy" & ROI == "lOT"  & intens == "80%")
+  grad_P1_lOT_80 =
+      grad_P1_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_100 = subset(grad_P1, emotion == "happy" & ROI == "lOT"  & intens == "100%")
+  grad_P1_lOT_100 =
+      grad_P1_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for happy rOT at 20/40/60/80/100%
+  grad_P1_rOT_20 = subset(grad_P1, emotion == "happy" & ROI == "rOT"  & intens == "20%")
+  grad_P1_rOT_20 =
+      grad_P1_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_40 = subset(grad_P1, emotion == "happy" & ROI == "rOT"  & intens == "40%")
+  grad_P1_rOT_40 =
+      grad_P1_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_60 = subset(grad_P1, emotion == "happy" & ROI == "rOT"  & intens == "60%")
+  grad_P1_rOT_60 =
+      grad_P1_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_80 = subset(grad_P1, emotion == "happy" & ROI == "rOT"  & intens == "80%")
+  grad_P1_rOT_80 =
+      grad_P1_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_100 = subset(grad_P1, emotion == "happy" & ROI == "rOT"  & intens == "100%")
+  grad_P1_rOT_100 =
+      grad_P1_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from P1
+  Av_ERP = as.data.frame(grad_P1_lOT_20$P1_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_P1_lOT_20$P1_lOT_20_amp'] = 'P1_lOT_20_amp'
+  Av_ERP$P1_lOT_40_amp = grad_P1_lOT_40$P1_lOT_40_amp
+  Av_ERP$P1_lOT_60_amp = grad_P1_lOT_60$P1_lOT_60_amp
+  Av_ERP$P1_lOT_80_amp = grad_P1_lOT_80$P1_lOT_80_amp
+  Av_ERP$P1_lOT_100_amp = grad_P1_lOT_100$P1_lOT_100_amp
+  Av_ERP$P1_rOT_20_amp = grad_P1_rOT_20$P1_rOT_20_amp
+  Av_ERP$P1_rOT_40_amp = grad_P1_rOT_40$P1_rOT_40_amp
+  Av_ERP$P1_rOT_60_amp = grad_P1_rOT_60$P1_rOT_60_amp
+  Av_ERP$P1_rOT_80_amp = grad_P1_rOT_80$P1_rOT_80_amp
+  Av_ERP$P1_rOT_100_amp = grad_P1_rOT_100$P1_rOT_100_amp
+
+# Calculate means/SEs
+  P1_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  P1_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(P1_stats$P1_lOT_20_amp_mean,P1_stats$P1_lOT_40_amp_mean,P1_stats$P1_lOT_60_amp_mean,
+                        P1_stats$P1_lOT_80_amp_mean,P1_stats$P1_lOT_100_amp_mean,
+                        P1_stats$P1_rOT_20_amp_mean,P1_stats$P1_rOT_40_amp_mean,P1_stats$P1_rOT_60_amp_mean,
+                        P1_stats$P1_rOT_80_amp_mean,P1_stats$P1_rOT_100_amp_mean),
+                se = c(P1_stats$P1_lOT_20_amp_se,P1_stats$P1_lOT_40_amp_se,P1_stats$P1_lOT_60_amp_se,
+                        P1_stats$P1_lOT_80_amp_se,P1_stats$P1_lOT_100_amp_se,P1_stats$P1_rOT_20_amp_se,P1_stats$P1_rOT_40_amp_se,
+                        P1_stats$P1_rOT_60_amp_se,P1_stats$P1_rOT_80_amp_se,P1_stats$P1_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+P1_av$roi = factor(P1_av$roi, levels=c("lOT","rOT"))
+P1_av$intens = factor(P1_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+P1_lines = ggplot(P1_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3, 4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  P1_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_P1_hap_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+```{r grad_line_P1_ang, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for angry lOT at 20/40/60/80/100%
+  grad_P1_lOT_20 = subset(grad_P1, emotion == "angry" & ROI == "lOT"  & intens == "20%")
+  grad_P1_lOT_20 =
+      grad_P1_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_40 = subset(grad_P1, emotion == "angry" & ROI == "lOT"  & intens == "40%")
+  grad_P1_lOT_40 =
+      grad_P1_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_60 = subset(grad_P1, emotion == "angry" & ROI == "lOT"  & intens == "60%")
+  grad_P1_lOT_60 =
+      grad_P1_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_80 = subset(grad_P1, emotion == "angry" & ROI == "lOT"  & intens == "80%")
+  grad_P1_lOT_80 =
+      grad_P1_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_lOT_100 = subset(grad_P1, emotion == "angry" & ROI == "lOT"  & intens == "100%")
+  grad_P1_lOT_100 =
+      grad_P1_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for angry rOT at 20/40/60/80/100%
+  grad_P1_rOT_20 = subset(grad_P1, emotion == "angry" & ROI == "rOT"  & intens == "20%")
+  grad_P1_rOT_20 =
+      grad_P1_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_40 = subset(grad_P1, emotion == "angry" & ROI == "rOT"  & intens == "40%")
+  grad_P1_rOT_40 =
+      grad_P1_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_60 = subset(grad_P1, emotion == "angry" & ROI == "rOT"  & intens == "60%")
+  grad_P1_rOT_60 =
+      grad_P1_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_80 = subset(grad_P1, emotion == "angry" & ROI == "rOT"  & intens == "80%")
+  grad_P1_rOT_80 =
+      grad_P1_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P1_rOT_100 = subset(grad_P1, emotion == "angry" & ROI == "rOT"  & intens == "100%")
+  grad_P1_rOT_100 =
+      grad_P1_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P1_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from P1
+  Av_ERP = as.data.frame(grad_P1_lOT_20$P1_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_P1_lOT_20$P1_lOT_20_amp'] = 'P1_lOT_20_amp'
+  Av_ERP$P1_lOT_40_amp = grad_P1_lOT_40$P1_lOT_40_amp
+  Av_ERP$P1_lOT_60_amp = grad_P1_lOT_60$P1_lOT_60_amp
+  Av_ERP$P1_lOT_80_amp = grad_P1_lOT_80$P1_lOT_80_amp
+  Av_ERP$P1_lOT_100_amp = grad_P1_lOT_100$P1_lOT_100_amp
+  Av_ERP$P1_rOT_20_amp = grad_P1_rOT_20$P1_rOT_20_amp
+  Av_ERP$P1_rOT_40_amp = grad_P1_rOT_40$P1_rOT_40_amp
+  Av_ERP$P1_rOT_60_amp = grad_P1_rOT_60$P1_rOT_60_amp
+  Av_ERP$P1_rOT_80_amp = grad_P1_rOT_80$P1_rOT_80_amp
+  Av_ERP$P1_rOT_100_amp = grad_P1_rOT_100$P1_rOT_100_amp
+
+# Calculate means/SEs
+  P1_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  P1_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(P1_stats$P1_lOT_20_amp_mean,P1_stats$P1_lOT_40_amp_mean,P1_stats$P1_lOT_60_amp_mean,
+                        P1_stats$P1_lOT_80_amp_mean,P1_stats$P1_lOT_100_amp_mean,
+                        P1_stats$P1_rOT_20_amp_mean,P1_stats$P1_rOT_40_amp_mean,P1_stats$P1_rOT_60_amp_mean,
+                        P1_stats$P1_rOT_80_amp_mean,P1_stats$P1_rOT_100_amp_mean),
+                se = c(P1_stats$P1_lOT_20_amp_se,P1_stats$P1_lOT_40_amp_se,P1_stats$P1_lOT_60_amp_se,
+                        P1_stats$P1_lOT_80_amp_se,P1_stats$P1_lOT_100_amp_se,P1_stats$P1_rOT_20_amp_se,P1_stats$P1_rOT_40_amp_se,
+                        P1_stats$P1_rOT_60_amp_se,P1_stats$P1_rOT_80_amp_se,P1_stats$P1_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+P1_av$roi = factor(P1_av$roi, levels=c("lOT","rOT"))
+P1_av$intens = factor(P1_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+P1_lines = ggplot(P1_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("gray88","gray82","gray60","gray44","gray8"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3, 4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  P1_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_P1_ang_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+```{r grad_line_N170_hap, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for happy lOT at 20/40/60/80/100%
+  grad_N170_lOT_20 = subset(grad_N170, emotion == "happy" & ROI == "lOT"  & intens == "20%")
+  grad_N170_lOT_20 =
+      grad_N170_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_40 = subset(grad_N170, emotion == "happy" & ROI == "lOT"  & intens == "40%")
+  grad_N170_lOT_40 =
+      grad_N170_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_60 = subset(grad_N170, emotion == "happy" & ROI == "lOT"  & intens == "60%")
+  grad_N170_lOT_60 =
+      grad_N170_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_80 = subset(grad_N170, emotion == "happy" & ROI == "lOT"  & intens == "80%")
+  grad_N170_lOT_80 =
+      grad_N170_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_100 = subset(grad_N170, emotion == "happy" & ROI == "lOT"  & intens == "100%")
+  grad_N170_lOT_100 =
+      grad_N170_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for happy rOT at 20/40/60/80/100%
+  grad_N170_rOT_20 = subset(grad_N170, emotion == "happy" & ROI == "rOT"  & intens == "20%")
+  grad_N170_rOT_20 =
+      grad_N170_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_40 = subset(grad_N170, emotion == "happy" & ROI == "rOT"  & intens == "40%")
+  grad_N170_rOT_40 =
+      grad_N170_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_60 = subset(grad_N170, emotion == "happy" & ROI == "rOT"  & intens == "60%")
+  grad_N170_rOT_60 =
+      grad_N170_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_80 = subset(grad_N170, emotion == "happy" & ROI == "rOT"  & intens == "80%")
+  grad_N170_rOT_80 =
+      grad_N170_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_100 = subset(grad_N170, emotion == "happy" & ROI == "rOT"  & intens == "100%")
+  grad_N170_rOT_100 =
+      grad_N170_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from N170
+  Av_ERP = as.data.frame(grad_N170_lOT_20$N170_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_N170_lOT_20$N170_lOT_20_amp'] = 'N170_lOT_20_amp'
+  Av_ERP$N170_lOT_40_amp = grad_N170_lOT_40$N170_lOT_40_amp
+  Av_ERP$N170_lOT_60_amp = grad_N170_lOT_60$N170_lOT_60_amp
+  Av_ERP$N170_lOT_80_amp = grad_N170_lOT_80$N170_lOT_80_amp
+  Av_ERP$N170_lOT_100_amp = grad_N170_lOT_100$N170_lOT_100_amp
+  Av_ERP$N170_rOT_20_amp = grad_N170_rOT_20$N170_rOT_20_amp
+  Av_ERP$N170_rOT_40_amp = grad_N170_rOT_40$N170_rOT_40_amp
+  Av_ERP$N170_rOT_60_amp = grad_N170_rOT_60$N170_rOT_60_amp
+  Av_ERP$N170_rOT_80_amp = grad_N170_rOT_80$N170_rOT_80_amp
+  Av_ERP$N170_rOT_100_amp = grad_N170_rOT_100$N170_rOT_100_amp
+
+# Calculate means/SEs
+  N170_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  N170_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(N170_stats$N170_lOT_20_amp_mean,N170_stats$N170_lOT_40_amp_mean,N170_stats$N170_lOT_60_amp_mean,
+                        N170_stats$N170_lOT_80_amp_mean,N170_stats$N170_lOT_100_amp_mean,
+                        N170_stats$N170_rOT_20_amp_mean,N170_stats$N170_rOT_40_amp_mean,N170_stats$N170_rOT_60_amp_mean,
+                        N170_stats$N170_rOT_80_amp_mean,N170_stats$N170_rOT_100_amp_mean),
+                se = c(N170_stats$N170_lOT_20_amp_se,N170_stats$N170_lOT_40_amp_se,N170_stats$N170_lOT_60_amp_se,
+                        N170_stats$N170_lOT_80_amp_se,N170_stats$N170_lOT_100_amp_se,N170_stats$N170_rOT_20_amp_se,N170_stats$N170_rOT_40_amp_se,
+                        N170_stats$N170_rOT_60_amp_se,N170_stats$N170_rOT_80_amp_se,N170_stats$N170_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+N170_av$roi = factor(N170_av$roi, levels=c("lOT","rOT"))
+N170_av$intens = factor(N170_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+N170_lines = ggplot(N170_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3,4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  N170_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_N170_hap_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+```{r grad_line_N170_ang, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for angry lOT at 20/40/60/80/100%
+  grad_N170_lOT_20 = subset(grad_N170, emotion == "angry" & ROI == "lOT"  & intens == "20%")
+  grad_N170_lOT_20 =
+      grad_N170_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_40 = subset(grad_N170, emotion == "angry" & ROI == "lOT"  & intens == "40%")
+  grad_N170_lOT_40 =
+      grad_N170_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_60 = subset(grad_N170, emotion == "angry" & ROI == "lOT"  & intens == "60%")
+  grad_N170_lOT_60 =
+      grad_N170_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_80 = subset(grad_N170, emotion == "angry" & ROI == "lOT"  & intens == "80%")
+  grad_N170_lOT_80 =
+      grad_N170_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_lOT_100 = subset(grad_N170, emotion == "angry" & ROI == "lOT"  & intens == "100%")
+  grad_N170_lOT_100 =
+      grad_N170_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for angry rOT at 20/40/60/80/100%
+  grad_N170_rOT_20 = subset(grad_N170, emotion == "angry" & ROI == "rOT"  & intens == "20%")
+  grad_N170_rOT_20 =
+      grad_N170_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_40 = subset(grad_N170, emotion == "angry" & ROI == "rOT"  & intens == "40%")
+  grad_N170_rOT_40 =
+      grad_N170_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_60 = subset(grad_N170, emotion == "angry" & ROI == "rOT"  & intens == "60%")
+  grad_N170_rOT_60 =
+      grad_N170_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_80 = subset(grad_N170, emotion == "angry" & ROI == "rOT"  & intens == "80%")
+  grad_N170_rOT_80 =
+      grad_N170_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_N170_rOT_100 = subset(grad_N170, emotion == "angry" & ROI == "rOT"  & intens == "100%")
+  grad_N170_rOT_100 =
+      grad_N170_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(N170_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from N170
+  Av_ERP = as.data.frame(grad_N170_lOT_20$N170_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_N170_lOT_20$N170_lOT_20_amp'] = 'N170_lOT_20_amp'
+  Av_ERP$N170_lOT_40_amp = grad_N170_lOT_40$N170_lOT_40_amp
+  Av_ERP$N170_lOT_60_amp = grad_N170_lOT_60$N170_lOT_60_amp
+  Av_ERP$N170_lOT_80_amp = grad_N170_lOT_80$N170_lOT_80_amp
+  Av_ERP$N170_lOT_100_amp = grad_N170_lOT_100$N170_lOT_100_amp
+  Av_ERP$N170_rOT_20_amp = grad_N170_rOT_20$N170_rOT_20_amp
+  Av_ERP$N170_rOT_40_amp = grad_N170_rOT_40$N170_rOT_40_amp
+  Av_ERP$N170_rOT_60_amp = grad_N170_rOT_60$N170_rOT_60_amp
+  Av_ERP$N170_rOT_80_amp = grad_N170_rOT_80$N170_rOT_80_amp
+  Av_ERP$N170_rOT_100_amp = grad_N170_rOT_100$N170_rOT_100_amp
+
+# Calculate means/SEs
+  N170_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  N170_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(N170_stats$N170_lOT_20_amp_mean,N170_stats$N170_lOT_40_amp_mean,N170_stats$N170_lOT_60_amp_mean,
+                        N170_stats$N170_lOT_80_amp_mean,N170_stats$N170_lOT_100_amp_mean,
+                        N170_stats$N170_rOT_20_amp_mean,N170_stats$N170_rOT_40_amp_mean,N170_stats$N170_rOT_60_amp_mean,
+                        N170_stats$N170_rOT_80_amp_mean,N170_stats$N170_rOT_100_amp_mean),
+                se = c(N170_stats$N170_lOT_20_amp_se,N170_stats$N170_lOT_40_amp_se,N170_stats$N170_lOT_60_amp_se,
+                        N170_stats$N170_lOT_80_amp_se,N170_stats$N170_lOT_100_amp_se,N170_stats$N170_rOT_20_amp_se,N170_stats$N170_rOT_40_amp_se,
+                        N170_stats$N170_rOT_60_amp_se,N170_stats$N170_rOT_80_amp_se,N170_stats$N170_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+N170_av$roi = factor(N170_av$roi, levels=c("lOT","rOT"))
+N170_av$intens = factor(N170_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+N170_lines = ggplot(N170_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("gray88","gray82","gray60","gray44","gray8"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3, 4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  N170_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_N170_ang_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+```{r grad_line_P3_hap, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for happy lOT at 20/40/60/80/100%
+  grad_P3_lOT_20 = subset(grad_P3, emotion == "happy" & ROI == "lOT"  & intens == "20%")
+  grad_P3_lOT_20 =
+      grad_P3_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_40 = subset(grad_P3, emotion == "happy" & ROI == "lOT"  & intens == "40%")
+  grad_P3_lOT_40 =
+      grad_P3_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_60 = subset(grad_P3, emotion == "happy" & ROI == "lOT"  & intens == "60%")
+  grad_P3_lOT_60 =
+      grad_P3_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_80 = subset(grad_P3, emotion == "happy" & ROI == "lOT"  & intens == "80%")
+  grad_P3_lOT_80 =
+      grad_P3_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_100 = subset(grad_P3, emotion == "happy" & ROI == "lOT"  & intens == "100%")
+  grad_P3_lOT_100 =
+      grad_P3_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for happy rOT at 20/40/60/80/100%
+  grad_P3_rOT_20 = subset(grad_P3, emotion == "happy" & ROI == "rOT"  & intens == "20%")
+  grad_P3_rOT_20 =
+      grad_P3_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_40 = subset(grad_P3, emotion == "happy" & ROI == "rOT"  & intens == "40%")
+  grad_P3_rOT_40 =
+      grad_P3_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_60 = subset(grad_P3, emotion == "happy" & ROI == "rOT"  & intens == "60%")
+  grad_P3_rOT_60 =
+      grad_P3_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_80 = subset(grad_P3, emotion == "happy" & ROI == "rOT"  & intens == "80%")
+  grad_P3_rOT_80 =
+      grad_P3_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_100 = subset(grad_P3, emotion == "happy" & ROI == "rOT"  & intens == "100%")
+  grad_P3_rOT_100 =
+      grad_P3_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from P3
+  Av_ERP = as.data.frame(grad_P3_lOT_20$P3_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_P3_lOT_20$P3_lOT_20_amp'] = 'P3_lOT_20_amp'
+  Av_ERP$P3_lOT_40_amp = grad_P3_lOT_40$P3_lOT_40_amp
+  Av_ERP$P3_lOT_60_amp = grad_P3_lOT_60$P3_lOT_60_amp
+  Av_ERP$P3_lOT_80_amp = grad_P3_lOT_80$P3_lOT_80_amp
+  Av_ERP$P3_lOT_100_amp = grad_P3_lOT_100$P3_lOT_100_amp
+  Av_ERP$P3_rOT_20_amp = grad_P3_rOT_20$P3_rOT_20_amp
+  Av_ERP$P3_rOT_40_amp = grad_P3_rOT_40$P3_rOT_40_amp
+  Av_ERP$P3_rOT_60_amp = grad_P3_rOT_60$P3_rOT_60_amp
+  Av_ERP$P3_rOT_80_amp = grad_P3_rOT_80$P3_rOT_80_amp
+  Av_ERP$P3_rOT_100_amp = grad_P3_rOT_100$P3_rOT_100_amp
+
+# Calculate means/SEs
+  P3_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  P3_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(P3_stats$P3_lOT_20_amp_mean,P3_stats$P3_lOT_40_amp_mean,P3_stats$P3_lOT_60_amp_mean,
+                        P3_stats$P3_lOT_80_amp_mean,P3_stats$P3_lOT_100_amp_mean,
+                        P3_stats$P3_rOT_20_amp_mean,P3_stats$P3_rOT_40_amp_mean,P3_stats$P3_rOT_60_amp_mean,
+                        P3_stats$P3_rOT_80_amp_mean,P3_stats$P3_rOT_100_amp_mean),
+                se = c(P3_stats$P3_lOT_20_amp_se,P3_stats$P3_lOT_40_amp_se,P3_stats$P3_lOT_60_amp_se,
+                        P3_stats$P3_lOT_80_amp_se,P3_stats$P3_lOT_100_amp_se,P3_stats$P3_rOT_20_amp_se,P3_stats$P3_rOT_40_amp_se,
+                        P3_stats$P3_rOT_60_amp_se,P3_stats$P3_rOT_80_amp_se,P3_stats$P3_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+P3_av$roi = factor(P3_av$roi, levels=c("lOT","rOT"))
+P3_av$intens = factor(P3_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+P3_lines = ggplot(P3_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("#cceaff","#80ccff","#0098ff","#005b99","#002e4c"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3, 4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  P3_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_P3_hap_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+```{r grad_line_P3_ang, warning = FALSE, message = FALSE, fig.height = 3, fig.width = 2}
+
+###### Preparing the data ######
+  
+# Average for angry lOT at 20/40/60/80/100%
+  grad_P3_lOT_20 = subset(grad_P3, emotion == "angry" & ROI == "lOT"  & intens == "20%")
+  grad_P3_lOT_20 =
+      grad_P3_lOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_40 = subset(grad_P3, emotion == "angry" & ROI == "lOT"  & intens == "40%")
+  grad_P3_lOT_40 =
+      grad_P3_lOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_60 = subset(grad_P3, emotion == "angry" & ROI == "lOT"  & intens == "60%")
+  grad_P3_lOT_60 =
+      grad_P3_lOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_80 = subset(grad_P3, emotion == "angry" & ROI == "lOT"  & intens == "80%")
+  grad_P3_lOT_80 =
+      grad_P3_lOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_lOT_100 = subset(grad_P3, emotion == "angry" & ROI == "lOT"  & intens == "100%")
+  grad_P3_lOT_100 =
+      grad_P3_lOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_lOT_100_amp = mean(amp, na.rm = TRUE))  
+  
+  
+# Average for angry rOT at 20/40/60/80/100%
+  grad_P3_rOT_20 = subset(grad_P3, emotion == "angry" & ROI == "rOT"  & intens == "20%")
+  grad_P3_rOT_20 =
+      grad_P3_rOT_20 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_20_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_40 = subset(grad_P3, emotion == "angry" & ROI == "rOT"  & intens == "40%")
+  grad_P3_rOT_40 =
+      grad_P3_rOT_40 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_40_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_60 = subset(grad_P3, emotion == "angry" & ROI == "rOT"  & intens == "60%")
+  grad_P3_rOT_60 =
+      grad_P3_rOT_60 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_60_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_80 = subset(grad_P3, emotion == "angry" & ROI == "rOT"  & intens == "80%")
+  grad_P3_rOT_80 =
+      grad_P3_rOT_80 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_80_amp = mean(amp, na.rm = TRUE))  
+  
+  
+  grad_P3_rOT_100 = subset(grad_P3, emotion == "angry" & ROI == "rOT"  & intens == "100%")
+  grad_P3_rOT_100 =
+      grad_P3_rOT_100 %>%
+      group_by(ID) %>%
+      dplyr::summarise(P3_rOT_100_amp = mean(amp, na.rm = TRUE))    
+    
+  
+# Averages from P3
+  Av_ERP = as.data.frame(grad_P3_lOT_20$P3_lOT_20_amp)
+  names(Av_ERP)[names(Av_ERP) == 'grad_P3_lOT_20$P3_lOT_20_amp'] = 'P3_lOT_20_amp'
+  Av_ERP$P3_lOT_40_amp = grad_P3_lOT_40$P3_lOT_40_amp
+  Av_ERP$P3_lOT_60_amp = grad_P3_lOT_60$P3_lOT_60_amp
+  Av_ERP$P3_lOT_80_amp = grad_P3_lOT_80$P3_lOT_80_amp
+  Av_ERP$P3_lOT_100_amp = grad_P3_lOT_100$P3_lOT_100_amp
+  Av_ERP$P3_rOT_20_amp = grad_P3_rOT_20$P3_rOT_20_amp
+  Av_ERP$P3_rOT_40_amp = grad_P3_rOT_40$P3_rOT_40_amp
+  Av_ERP$P3_rOT_60_amp = grad_P3_rOT_60$P3_rOT_60_amp
+  Av_ERP$P3_rOT_80_amp = grad_P3_rOT_80$P3_rOT_80_amp
+  Av_ERP$P3_rOT_100_amp = grad_P3_rOT_100$P3_rOT_100_amp
+
+# Calculate means/SEs
+  P3_stats = Av_ERP %>% 
+  summarise_each(funs(mean(., na.rm=T), n = sum(!is.na(.)), se = sd(., na.rm=T)/sqrt(sum(!is.na(.)))))
+  
+# Combine data into one data frame 
+  P3_av = data.frame(intens = rep(c("20%","40%","60%","80%","100%","20%","40%","60%","80%","100%")),
+                roi = rep(c("lOT","lOT","lOT","lOT","lOT","rOT","rOT","rOT","rOT","rOT")),
+                amp = c(P3_stats$P3_lOT_20_amp_mean,P3_stats$P3_lOT_40_amp_mean,P3_stats$P3_lOT_60_amp_mean,
+                        P3_stats$P3_lOT_80_amp_mean,P3_stats$P3_lOT_100_amp_mean,
+                        P3_stats$P3_rOT_20_amp_mean,P3_stats$P3_rOT_40_amp_mean,P3_stats$P3_rOT_60_amp_mean,
+                        P3_stats$P3_rOT_80_amp_mean,P3_stats$P3_rOT_100_amp_mean),
+                se = c(P3_stats$P3_lOT_20_amp_se,P3_stats$P3_lOT_40_amp_se,P3_stats$P3_lOT_60_amp_se,
+                        P3_stats$P3_lOT_80_amp_se,P3_stats$P3_lOT_100_amp_se,P3_stats$P3_rOT_20_amp_se,P3_stats$P3_rOT_40_amp_se,
+                        P3_stats$P3_rOT_60_amp_se,P3_stats$P3_rOT_80_amp_se,P3_stats$P3_rOT_100_amp_se))
+  
+
+###### Plotting ###### 
+  
+P3_av$roi = factor(P3_av$roi, levels=c("lOT","rOT"))
+P3_av$intens = factor(P3_av$intens, levels=c("20%","40%","60%","80%","100%"))
+  
+    
+P3_lines = ggplot(P3_av, aes(x=roi, y=amp, group=intens, color=intens)) + 
+    geom_errorbar(aes(ymin=amp-se, ymax=amp+se), width=.2,position=position_dodge(0.05), size = 1) +
+    geom_line(size = 1) + 
+    geom_point(size = 2)+
+    scale_color_manual(values= c("gray88","gray82","gray60","gray44","gray8"))+ 
+    labs(y = expression(paste("Amplitude [",mu,"V]")),colour = "") +
+    labs(x = "ROI") +
+    scale_y_continuous(breaks=seq(-3,4,1))+
+    coord_cartesian(ylim=c(-3, 4)) +
+    theme_prism(base_size = 12)+
+          theme(legend.position ="none", panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          legend.background = element_rect(fill = "transparent"), # get rid of legend bg
+          legend.box.background = element_rect(fill = "transparent"),
+          panel.grid.major.y = element_line(colour = "black", linetype = "dotted", size=0.6))
+  
+  P3_lines
+  
+# Save plots with transparent background     
+  ggsave("./figures/fig_grad_P3_ang_lines.png", bg = "transparent", dpi = 300)  
+
+```
+
+## Single-trial analyses {.tabset .tabset-pills}
+
+### C1 wo MO
+
+```{r LMM_grad_P1_wo_MO, results="asis"}
+
+# Select cluster of interest
+  grad_P1 = subset (grad_P1, ROI == "lOT" | ROI == "rOT")
+
+# Convert ID, group & emotion into factor variables
+  grad_P1$ID = factor(grad_P1$ID)
+  grad_P1$emotion = factor(grad_P1$emotion)
+  grad_P1$group = factor(grad_P1$group)
+  grad_P1$intens = factor(grad_P1$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P1$ROI = factor(grad_P1$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P1$emotion) = contr.treatment(2)
+  contrasts(grad_P1$group) = contr.treatment(2)
+  contrasts(grad_P1$ROI) = contr.treatment(2)
+  contrasts(grad_P1$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_P1 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_P1, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_res = anova_stats(mod_P1)
+  mod_P1_res = subset(mod_P1_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P1_res = head(mod_P1_res, - 1) 
+  knitr::kable(mod_P1_res, format = 'markdown')  
+
+# Post-hoc tests
+  m.roi = emmeans(mod_P1, "ROI")
+
+  ROI = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(ROI, format = 'markdown')
+  
+  m.intens = emmeans(mod_P1, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')  
+  
+  
+  m.intens = emmeans(mod_P1, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')  
+  
+```
+
+*lOT*
+
+```{r LMM_grad_P1_lOT_wo_MO, results="asis", fig.width = 10, fig.height = 4}
+
+# Select lOT
+  grad_P1_lOT = subset(grad_P1, ROI == "lOT")
+
+  
+# Build model                
+  mod_P1_lOT = lmer(amp ~ emotion*intens*group + (1|ID),
+                        data = grad_P1_lOT, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_lOT_res = anova_stats(mod_P1_lOT)
+  mod_P1_lOT_res = subset(mod_P1_lOT_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P1_lOT_res = head(mod_P1_lOT_res, - 1) 
+  knitr::kable(mod_P1_lOT_res, format = 'markdown')  
+
+# Examine interaction
+  int_mod_int = emmip(mod_P1_lOT, group ~ intens | emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_mod_int
+  
+  # Save without white background
+  ggsave("./figures/grad_P1_lOT_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P1_lOT, pairwise ~ group | intens | emotion)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  
+ m.intens = emmeans(mod_P1_lOT, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown') 
+  
+  
+  m.intens = emmeans(mod_P1_lOT, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')
+  
+```
+
+
+*rOT*
+
+```{r LMM_grad_P1_rOT_wo_MO, results="asis", width = 10}
+
+# Select rOT
+  grad_P1_rOT = subset(grad_P1, ROI == "rOT")
+
+  
+# Build model                
+  mod_P1_rOT = lmer(amp ~ emotion*intens*group + (1|ID),
+                        data = grad_P1_rOT, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_rOT_res = anova_stats(mod_P1_rOT)
+  mod_P1_rOT_res = subset(mod_P1_rOT_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P1_rOT_res = head(mod_P1_rOT_res, - 1) 
+  knitr::kable(mod_P1_rOT_res, format = 'markdown')  
+  
+  m.intens = emmeans(mod_P1_rOT, "intens")
+  
+  main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens, format = 'markdown')
+  
+
+```
+
+
+### C2 wo MO
+
+```{r LMM_grad_N170_wo_MO, results="asis", fig.width = 10}
+
+# Select cluster of interest 
+  grad_N170 = subset (grad_N170, ROI == "lOT" | ROI == "rOT")
+  
+# Convert ID, group & emotion into factor variables
+  grad_N170$ID = factor(grad_N170$ID)
+  grad_N170$emotion = factor(grad_N170$emotion)
+  grad_N170$group = factor(grad_N170$group)
+  grad_N170$intens = factor(grad_N170$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_N170$ROI = factor(grad_N170$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_N170$emotion) = contr.treatment(2)
+  contrasts(grad_N170$group) = contr.treatment(2)
+  contrasts(grad_N170$ROI) = contr.treatment(2)
+  contrasts(grad_N170$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_N170 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_N170, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_N170_res = anova_stats(mod_N170)
+  mod_N170_res = subset(mod_N170_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_N170_res = head(mod_N170_res, - 1) 
+  knitr::kable(mod_N170_res, format = 'markdown')   
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ emotion | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+# Examine interaction
+  int_emo = emmip(mod_N170, emotion ~ intens, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ group | emotion)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+# Examine interaction
+  gr_emo = emmip(mod_N170, group ~ emotion, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_emo
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_emo_group.png", bg = "transparent", dpi = 300) 
+  
+ # Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ group | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  # Examine interaction
+  gr_int = emmip(mod_N170, group ~ intens, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_int
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_int_group.png", bg = "transparent", dpi = 300) 
+  
+  
+ # Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ group | intens | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')    
+  
+  
+  m.intens = emmeans(mod_N170, "intens")
+  
+  main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens, format = 'markdown')
+  
+   
+  m.intens = emmeans(mod_N170, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')  
+  
+```
+
+
+### C3 wo MO
+
+```{r LMM_grad_P3_wo_MO, results="asis", fig.width = 10}
+
+# Select clusters of interest  
+  grad_P3 = subset (grad_P3, ROI == "lOT" | ROI == "rOT")
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_P3$group = qn_data$group[match(grad_P3$ID,qn_data$ID,nomatch = NA)]
+
+# Convert ID, group & emotion into factor variables
+  grad_P3$ID = factor(grad_P3$ID)
+  grad_P3$emotion = factor(grad_P3$emotion)
+  grad_P3$group = factor(grad_P3$group)
+  grad_P3$intens = factor(grad_P3$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P3$ROI = factor(grad_P3$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P3$emotion) = contr.treatment(2)
+  contrasts(grad_P3$group) = contr.treatment(2)
+  contrasts(grad_P3$ROI) = contr.treatment(2)
+  contrasts(grad_P3$intens) =  contr.treatment(5)
+  
+# Build model                
+  mod_P3 = lmer(amp ~ emotion*intens*group*ROI + (1|ID),
+                        data = grad_P3, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P3_res = anova_stats(mod_P3)
+  mod_P3_res = subset(mod_P3_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P3_res = head(mod_P3_res, - 1) 
+  knitr::kable(mod_P3_res, format = 'markdown')  
+  
+# Examine interaction
+  int_emo_group = emmip(mod_P3, emotion ~ intens | group, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_group
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ group | intens | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  
+# Examine interaction
+  gr_emo_roi = emmip(mod_P3, group ~ intens | ROI, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_emo_roi
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_roi_emo_gr.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ group | emotion | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')   
+  
+  
+  emm_s.t = emmeans(mod_P3, pairwise ~ group | emotion | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')     
+  
+  m.intens = emmeans(mod_P3, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown') 
+  
+  m.intens = emmeans(mod_P3, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')
+  
+  m.emo = emmeans(mod_P3, "emotion")
+
+  emo = contrast(m.emo, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(emo, format = 'markdown')
+  
+  m.roi = emmeans(mod_P3, "ROI")
+
+  roi = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(roi, format = 'markdown')
+```
+
+
+## Single-trial analyses PDI {.tabset .tabset-pills}
+
+### P1 wo MO / PDI
+```{r LMM_grad_P1_wo_MO_PDI, results="asis"}
+
+# Load data
+  grad_P1_amp_twent = read.delim("./data/grad_P1_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_fort = read.delim("./data/grad_P1_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_sixt = read.delim("./data/grad_P1_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_eigt = read.delim("./data/grad_P1_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_oneh = read.delim("./data/grad_P1_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_P1_amp_twent = read.delim("./data/grad_P1_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_fort = read.delim("./data/grad_P1_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_sixt = read.delim("./data/grad_P1_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_eigt = read.delim("./data/grad_P1_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P1_amp_oneh = read.delim("./data/grad_P1_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+  
+# Add intensity
+  grad_P1_amp_twent = mutate(grad_P1_amp_twent, intens = "20%")
+  grad_P1_amp_fort = mutate(grad_P1_amp_fort, intens = "40%")
+  grad_P1_amp_sixt = mutate(grad_P1_amp_sixt, intens = "60%")
+  grad_P1_amp_eigt = mutate(grad_P1_amp_eigt, intens = "80%")
+  grad_P1_amp_oneh = mutate(grad_P1_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_P1 = rbind(grad_P1_amp_twent,grad_P1_amp_fort,grad_P1_amp_sixt,grad_P1_amp_eigt,grad_P1_amp_oneh)
+  
+# Recode emotion condition  
+  grad_P1 =  grad_P1 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_P1 = gather(grad_P1, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_P1$ROI = NA
+  grad_P1[grad_P1$elec == "PO7" | grad_P1$elec == "PO3" | grad_P1$elec == "P7" | grad_P1$elec == "PO9",]$ROI = "lOT"
+  grad_P1[grad_P1$elec == "PO8" | grad_P1$elec == "PO4" | grad_P1$elec == "P8" | grad_P1$elec == "PO10",]$ROI = "rOT"
+  grad_P1[grad_P1$elec == "O1" | grad_P1$elec == "Oz" | grad_P1$elec == "O2",]$ROI = "MO"
+  
+  grad_P1 = subset (grad_P1, ROI == "lOT" | ROI == "rOT")
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_P1$group = qn_data$group[match(grad_P1$ID,qn_data$ID,nomatch = NA)]
+  
+# Convert ID, group & emotion into factor variables
+  grad_P1$ID = factor(grad_P1$ID)
+  grad_P1$emotion = factor(grad_P1$emotion)
+  grad_P1$group = factor(grad_P1$group)
+  grad_P1$intens = factor(grad_P1$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P1$ROI = factor(grad_P1$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P1$emotion) = contr.treatment(2)
+  contrasts(grad_P1$group) = contr.treatment(2)
+  contrasts(grad_P1$ROI) = contr.treatment(2)
+  contrasts(grad_P1$intens) =  contr.treatment(5)
+  
+# Load PDI data
+  grad_pdi = read.delim("./data/grad_pdi_values.txt", header = TRUE, sep = " ", dec = ".")
+   
+# Transpose data frame 
+  grad_pdi = gather(grad_pdi, intens, pdi, twent:oneh, factor_key=TRUE)
+  
+# Recode intensities
+  grad_pdi$intens = as.numeric(grad_pdi$intens)
+  grad_pdi$intens[grad_pdi$intens == 1] = "20%"
+  grad_pdi$intens[grad_pdi$intens == 2] = "40%"
+  grad_pdi$intens[grad_pdi$intens == 3] = "60%"
+  grad_pdi$intens[grad_pdi$intens == 4] = "80%"
+  grad_pdi$intens[grad_pdi$intens == 5] = "100%"
+  
+# Rename column for emotion
+  names(grad_pdi)[1] = "emotion"
+  
+# Bring information together  
+  grad_P1_pdi = merge(grad_P1, grad_pdi, by = c('emotion', 'intens'))
+
+# Build model                
+  mod_P1 = lmer(amp ~ pdi + emotion*intens*group*ROI + (1|ID),
+                        data = grad_P1_pdi, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P1_res = anova_stats(mod_P1)
+  mod_P1_res = subset(mod_P1_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P1_res = head(mod_P1_res, - 1) 
+  knitr::kable(mod_P1_res, format = 'markdown')  
+
+# Post-hoc tests
+  m.roi = emmeans(mod_P1, "ROI")
+
+  ROI = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(ROI, format = 'markdown')
+  
+  m.intens = emmeans(mod_P1, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')  
+  
+  
+  m.intens = emmeans(mod_P1, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')  
+  
+```
+
+
+### N170 wo MO / PDI
+
+```{r LMM_grad_N170_wo_MO_PDI, results="asis", fig.width = 10}
+
+# Load data
+  grad_N170_amp_twent = read.delim("./data/grad_N170_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_fort = read.delim("./data/grad_N170_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_sixt = read.delim("./data/grad_N170_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_eigt = read.delim("./data/grad_N170_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_oneh = read.delim("./data/grad_N170_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_N170_amp_twent = read.delim("./data/grad_N170_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_fort = read.delim("./data/grad_N170_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_sixt = read.delim("./data/grad_N170_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_eigt = read.delim("./data/grad_N170_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_N170_amp_oneh = read.delim("./data/grad_N170_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+# Add intensity
+  grad_N170_amp_twent = mutate(grad_N170_amp_twent, intens = "20%")
+  grad_N170_amp_fort = mutate(grad_N170_amp_fort, intens = "40%")
+  grad_N170_amp_sixt = mutate(grad_N170_amp_sixt, intens = "60%")
+  grad_N170_amp_eigt = mutate(grad_N170_amp_eigt, intens = "80%")
+  grad_N170_amp_oneh = mutate(grad_N170_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_N170 = rbind(grad_N170_amp_twent,grad_N170_amp_fort,grad_N170_amp_sixt,grad_N170_amp_eigt,grad_N170_amp_oneh)
+  
+# Recode emotion condition  
+  grad_N170 =  grad_N170 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_N170 = gather(grad_N170, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_N170$ROI = NA
+  grad_N170[grad_N170$elec == "PO7" | grad_N170$elec == "PO3" | grad_N170$elec == "P7" | grad_N170$elec == "PO9",]$ROI = "lOT"
+  grad_N170[grad_N170$elec == "PO8" | grad_N170$elec == "PO4" | grad_N170$elec == "P8" | grad_N170$elec == "PO10",]$ROI = "rOT"
+  grad_N170[grad_N170$elec == "O1" | grad_N170$elec == "Oz" | grad_N170$elec == "O2",]$ROI = "MO"
+  
+  grad_N170 = subset (grad_N170, ROI == "lOT" | ROI == "rOT")
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_N170$group = qn_data$group[match(grad_N170$ID,qn_data$ID,nomatch = NA)]
+
+# Convert ID, group & emotion into factor variables
+  grad_N170$ID = factor(grad_N170$ID)
+  grad_N170$emotion = factor(grad_N170$emotion)
+  grad_N170$group = factor(grad_N170$group)
+  grad_N170$intens = factor(grad_N170$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_N170$ROI = factor(grad_N170$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_N170$emotion) = contr.treatment(2)
+  contrasts(grad_N170$group) = contr.treatment(2)
+  contrasts(grad_N170$ROI) = contr.treatment(2)
+  contrasts(grad_N170$intens) =  contr.treatment(5)
+  
+# Load PDI data
+  grad_pdi = read.delim("./data/grad_pdi_values.txt", header = TRUE, sep = " ", dec = ".")
+   
+# Transpose data frame 
+  grad_pdi = gather(grad_pdi, intens, pdi, twent:oneh, factor_key=TRUE)
+  
+# Recode intensities
+  grad_pdi$intens = as.numeric(grad_pdi$intens)
+  grad_pdi$intens[grad_pdi$intens == 1] = "20%"
+  grad_pdi$intens[grad_pdi$intens == 2] = "40%"
+  grad_pdi$intens[grad_pdi$intens == 3] = "60%"
+  grad_pdi$intens[grad_pdi$intens == 4] = "80%"
+  grad_pdi$intens[grad_pdi$intens == 5] = "100%"
+
+# Rename column for emotion
+  names(grad_pdi)[1] = "emotion"
+  
+# Bring information together  
+  grad_N170_pdi = merge(grad_pdi, grad_N170, by = c('emotion', 'intens'))
+  
+# Build model                
+  mod_N170 = lmer(amp ~ pdi + emotion*intens*group*ROI  + (1|ID),
+                        data = grad_N170_pdi, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_N170_res = anova_stats(mod_N170)
+  mod_N170_res = subset(mod_N170_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_N170_res = head(mod_N170_res, - 1) 
+  knitr::kable(mod_N170_res, format = 'markdown')  
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ emotion | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+# Examine interaction
+  int_emo = emmip(mod_N170, emotion ~ intens, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ emotion | group)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  
+# Examine interaction
+  gr_emo = emmip(mod_N170, emotion ~ group, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_emo
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_emo_group.png", bg = "transparent", dpi = 300) 
+  
+ # Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_N170, pairwise ~ intens | group)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  
+  # Examine interaction
+  gr_int = emmip(mod_N170, group ~ intens, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_int
+  
+  # Save without white background
+  ggsave("./figures/grad_N170_int_group.png", bg = "transparent", dpi = 300) 
+  
+  
+  m.intens = emmeans(mod_N170, "intens")
+  
+  main_intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(main_intens, format = 'markdown')
+  
+   
+  m.intens = emmeans(mod_N170, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown')  
+  
+```
+
+### P3 wo MO / PDI
+
+```{r LMM_grad_P3_wo_MO_PDI, results="asis", fig.width = 10}
+
+# Load data
+  grad_P3_amp_twent = read.delim("./data/grad_P3_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_fort = read.delim("./data/grad_P3_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_sixt = read.delim("./data/grad_P3_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_eigt = read.delim("./data/grad_P3_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_oneh = read.delim("./data/grad_P3_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+
+  grad_P3_amp_twent = read.delim("./data/grad_P3_twent_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_fort = read.delim("./data/grad_P3_fort_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_sixt = read.delim("./data/grad_P3_sixt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_eigt = read.delim("./data/grad_P3_eigt_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  grad_P3_amp_oneh = read.delim("./data/grad_P3_oneh_singl_trials.txt", header = TRUE, sep = " ", dec = ".")
+  
+  
+# Add intensity
+  grad_P3_amp_twent = mutate(grad_P3_amp_twent, intens = "20%")
+  grad_P3_amp_fort = mutate(grad_P3_amp_fort, intens = "40%")
+  grad_P3_amp_sixt = mutate(grad_P3_amp_sixt, intens = "60%")
+  grad_P3_amp_eigt = mutate(grad_P3_amp_eigt, intens = "80%")
+  grad_P3_amp_oneh = mutate(grad_P3_amp_oneh, intens = "100%")
+    
+# Combine datasets
+  grad_P3 = rbind(grad_P3_amp_twent,grad_P3_amp_fort,grad_P3_amp_sixt,grad_P3_amp_eigt,grad_P3_amp_oneh)
+  
+# Recode emotion condition  
+  grad_P3 =  grad_P3 %>% dplyr::mutate(emotion=dplyr::recode(emotion, 
+                         `1`="happy",
+                         `2`="angry"))
+  
+# Recode ROI condition
+  
+# Transform from wide to long format 
+  grad_P3 = gather(grad_P3, elec, amp, O1:PO10, factor_key=TRUE)
+  
+  grad_P3$ROI = NA
+  grad_P3[grad_P3$elec == "PO7" | grad_P3$elec == "PO3" | grad_P3$elec == "P7" | grad_P3$elec == "PO9",]$ROI = "lOT"
+  grad_P3[grad_P3$elec == "PO8" | grad_P3$elec == "PO4" | grad_P3$elec == "P8" | grad_P3$elec == "PO10",]$ROI = "rOT"
+  grad_P3[grad_P3$elec == "O1" | grad_P3$elec == "Oz" | grad_P3$elec == "O2",]$ROI = "MO"
+  
+  grad_P3 = subset (grad_P3, ROI == "lOT" | ROI == "rOT")
+  
+# Match group with ID
+  
+  # Load qn_data
+  load.Rdata(filename="./data/qn_data.RData", "qn_data")
+  
+  # Add group
+  grad_P3$group = qn_data$group[match(grad_P3$ID,qn_data$ID,nomatch = NA)]
+  
+
+# Convert ID, group & emotion into factor variables
+  grad_P3$ID = factor(grad_P3$ID)
+  grad_P3$emotion = factor(grad_P3$emotion)
+  grad_P3$group = factor(grad_P3$group)
+  grad_P3$intens = factor(grad_P3$intens, levels = c("20%", "40%", "60%", "80%","100%"))
+  grad_P3$ROI = factor(grad_P3$ROI)
+ 
+# Define effect treatment contrasts
+  contrasts(grad_P3$emotion) = contr.treatment(2)
+  contrasts(grad_P3$group) = contr.treatment(2)
+  contrasts(grad_P3$ROI) = contr.treatment(2)
+  contrasts(grad_P3$intens) =  contr.treatment(5)
+  
+# Load PDI data
+  grad_pdi = read.delim("./data/grad_pdi_values.txt", header = TRUE, sep = " ", dec = ".")
+   
+# Transpose data frame 
+  grad_pdi = gather(grad_pdi, intens, pdi, twent:oneh, factor_key=TRUE)
+  
+# Recode intensities
+  grad_pdi$intens = as.numeric(grad_pdi$intens)
+  grad_pdi$intens[grad_pdi$intens == 1] = "20%"
+  grad_pdi$intens[grad_pdi$intens == 2] = "40%"
+  grad_pdi$intens[grad_pdi$intens == 3] = "60%"
+  grad_pdi$intens[grad_pdi$intens == 4] = "80%"
+  grad_pdi$intens[grad_pdi$intens == 5] = "100%"
+  
+# Rename column for emotion
+  names(grad_pdi)[1] = "emotion"
+  
+# Bring information together  
+  grad_P3_pdi = merge(grad_P3, grad_pdi, by = c('emotion', 'intens'))
+  
+# Build model                
+  mod_P3 = lmer(amp ~ pdi + emotion*intens*group*ROI + (1|ID),
+                        data = grad_P3_pdi, control=lmerControl(calc.derivs = FALSE))  
+  
+# Calculate and print ANOVA
+  mod_P3_res = anova_stats(mod_P3)
+  mod_P3_res = subset(mod_P3_res, select = -c(term, sumsq,meansq,df,etasq,omegasq,partial.omegasq,epsilonsq,cohens.f,power))
+  mod_P3_res = head(mod_P3_res, - 1) 
+  knitr::kable(mod_P3_res, format = 'markdown')  
+  
+# Examine interaction
+  int_emo_group = emmip(mod_P3, emotion ~ intens | group, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#0098ff"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  int_emo_group
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_group_emo_intens.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ emotion | group | intens)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')  
+  
+  
+# Examine interaction
+  gr_emo_roi = emmip(mod_P3, group ~ emotion | ROI, CIs =TRUE)+
+  scale_color_manual(values=c("#333333","#D97909"))+
+  theme_prism(base_size = 18)+
+  labs(x = "Expression intensity")+
+  scale_size_manual(values=c(1,3))
+  
+  gr_emo_roi
+  
+  # Save without white background
+  ggsave("./figures/grad_P3_roi_emo_gr.png", bg = "transparent", dpi = 300) 
+  
+# Calculate and print post-hoc tests
+  emm_s.t = emmeans(mod_P3, pairwise ~ emotion | group | ROI)
+  knitr::kable(emm_s.t$contrasts, format = 'markdown')   
+  
+  m.intens = emmeans(mod_P3, "intens")
+  
+  poly_intens = contrast(m.intens, 'poly') %>%
+  broom::tidy() %>%
+  head(3) 
+  
+  knitr::kable(poly_intens, format = 'markdown') 
+  
+  m.intens = emmeans(mod_P3, "intens")
+
+  intens = contrast(m.intens, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(intens, format = 'markdown')
+  
+  m.emo = emmeans(mod_P3, "emotion")
+
+  emo = contrast(m.emo, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(emo, format = 'markdown')
+  
+  m.roi = emmeans(mod_P3, "ROI")
+
+  roi = contrast(m.roi, 'tukey') %>%
+  broom::tidy() %>%
+  head(6)
+  
+  knitr::kable(roi, format = 'markdown')
+```
+
+
+
+
+
+# Session info
+
+<!-- Provide session info  -->
+
+```{r session_info, results = TRUE}
+
+# Get session info 
+  sessionInfo()
+
+```
+
